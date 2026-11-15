@@ -10,6 +10,7 @@ import { groupTasks, todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { queryKeys } from "../lib/queryKeys";
+import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
 import type { Item, ItemFilters } from "../types/api";
 
@@ -18,6 +19,7 @@ export function TasksPage() {
   const setTasksView = useUi((state) => state.setTasksView);
   const contextId = useUi((state) => state.contextId);
   const pushToast = useUi((state) => state.pushToast);
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const view = params.get("view") === "board" ? "board" : "list";
   const today = todayISO();
@@ -35,10 +37,10 @@ export function TasksPage() {
   const tasks = useQuery({ queryKey: queryKeys.items(filters), queryFn: () => listItems(filters) });
   const groups = groupTasks(tasks.data?.items ?? [], today);
   const sections = [
-    ["Overdue", groups.overdue],
-    ["Today", groups.today],
-    ["Upcoming", groups.upcoming],
-    ["No due date", groups.none],
+    [t("tasks.overdue"), groups.overdue],
+    [t("tasks.today"), groups.today],
+    [t("tasks.upcoming"), groups.upcoming],
+    [t("tasks.none"), groups.none],
   ] as const;
 
   function setView(next: "list" | "board") {
@@ -65,16 +67,16 @@ export function TasksPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-[20px]">Tasks</h1>
+        <h1 className="text-[20px]">{t("tasks.title")}</h1>
         <div className="flex rounded-[8px] border border-border p-1">
           {(["list", "board"] as const).map((option) => (
             <button
               key={option}
               type="button"
-              className={`min-h-11 rounded-[8px] px-3 capitalize ${view === option ? "bg-interactive" : "text-fg-muted"}`}
+              className={`min-h-8 rounded-[8px] px-3 text-[13px] ${view === option ? "bg-interactive" : "text-fg-muted"}`}
               onClick={() => setView(option)}
             >
-              {option}
+              {t(option === "list" ? "tasks.list" : "tasks.board")}
             </button>
           ))}
         </div>
@@ -83,7 +85,7 @@ export function TasksPage() {
         <Board items={tasks.data?.items ?? []} projectId={null} showProject />
       ) : (
         <div className="flex flex-col gap-6">
-          {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">No open tasks</p> : null}
+          {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">{t("tasks.empty")}</p> : null}
           {sections.map(([label, rows]) =>
             rows.length === 0 ? null : (
               <section key={label}>

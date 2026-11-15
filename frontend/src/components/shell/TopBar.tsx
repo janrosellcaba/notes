@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LogOut, Search, Settings } from "lucide-react";
 
 import { getMe, logout } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useUi } from "../../stores/ui";
 import { BrandMark } from "../ui/BrandMark";
@@ -18,6 +19,7 @@ export function TopBar() {
   const queryClient = useQueryClient();
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe });
   const initial = (me.data?.username ?? "?").slice(0, 1).toUpperCase();
+  const { t } = useI18n();
 
   async function signOut() {
     setAccountOpen(false);
@@ -40,7 +42,7 @@ export function TopBar() {
           onClick={() => setPaletteOpen(true)}
         >
           <Search size={14} />
-          <span className="hidden flex-1 text-left md:inline">Search</span>
+          <span className="hidden flex-1 text-left md:inline">{t("nav.search")}</span>
           <span className="hidden rounded-[5px] border border-border-subtle px-1 py-px md:inline">
             <Kbd>K</Kbd>
           </span>
@@ -61,22 +63,22 @@ export function TopBar() {
           }
         >
           <div className="flex min-w-44 flex-col">
-            <p className="px-3 py-2 text-[13px] text-fg-muted">{me.data?.username ?? "Account"}</p>
+            <p className="px-3 py-2 text-[13px] text-fg-muted">{me.data?.username ?? t("nav.account")}</p>
             <Link
               to="/settings"
               className="flex min-h-11 items-center gap-2 rounded-[8px] px-3 hover:bg-interactive"
               onClick={() => setAccountOpen(false)}
             >
               <Settings size={16} />
-              Settings
+              {t("nav.settings")}
             </Link>
             <button
               type="button"
-              className="flex min-h-11 items-center gap-2 rounded-[8px] px-3 text-left hover:bg-interactive"
+              className="flex min-h-9 items-center gap-2 rounded-[8px] px-3 text-left text-[13px] hover:bg-interactive"
               onClick={() => void signOut()}
             >
               <LogOut size={16} />
-              Log out
+              {t("nav.logout")}
             </button>
           </div>
         </Popover>

@@ -34,9 +34,25 @@ async def test_home_context_filter_keeps_unassigned_tasks_and_counts_the_inbox(
     assert job1_task["id"] in task_ids
     assert loose_task["id"] in task_ids
     assert job2_task["id"] not in task_ids
-    assert body["inbox_count"] == 2
+    assert body["inbox_count"] == 1
     assert loose_note["id"]
     assert body["today"] == today
+
+
+async def test_a_filed_note_skips_the_inbox_and_stays_in_its_context(
+    authed: tuple[object, AsyncClient],
+) -> None:
+    _app, http = authed
+    created = await http.post("/api/items", json={"type": "note", "title": "Filed", "context_id": "ctx_job1"})
+    assert created.status_code == 201, created.text
+    inbox = await http.get("/api/items", params={"project_id": "none"})
+    assert created.json()["id"] not in {item["id"] for item in inbox.json()["items"]}
+    home = await http.get("/api/home", params={"today": "2026-11-15"})
+    assert home.json()["inbox_count"] == 0
+    own = await http.get("/api/items", params={"context_id": "ctx_job1"})
+    other = await http.get("/api/items", params={"context_id": "ctx_job2"})
+    assert created.json()["id"] in {item["id"] for item in own.json()["items"]}
+    assert created.json()["id"] not in {item["id"] for item in other.json()["items"]}
 
 
 async def test_home_requires_a_real_day(authed: tuple[object, AsyncClient]) -> None:

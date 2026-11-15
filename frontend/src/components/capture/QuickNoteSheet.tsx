@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createItem, errorMessage, extractTask, newIdempotencyKey, patchItem } from "../../lib/api";
+import { filedContext } from "../../lib/capture";
 import { invalidateItemViews } from "../../lib/cache";
 import { useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
@@ -19,6 +20,7 @@ function sameDraft(left: Draft, right: Draft): boolean {
 export function QuickNoteSheet({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const contextId = useUi((state) => state.contextId);
   const projects = useProjectList("all");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -59,6 +61,7 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
             title: current.title,
             body_md: current.body,
             project_id: current.projectId,
+            context_id: filedContext(contextId, current.projectId),
           },
           state.current.key,
         );

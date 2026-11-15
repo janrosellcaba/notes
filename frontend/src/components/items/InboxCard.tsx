@@ -8,16 +8,16 @@ import { cn } from "../../lib/cn";
 import { relativeTime } from "../../lib/dates";
 import { useUi } from "../../stores/ui";
 import type { Item, Project } from "../../types/api";
-import { Button } from "../ui/Button";
+import { useI18n, type MessageKey } from "../../lib/i18n";
+import { ContextMark } from "../shell/ContextMark";
 import { Popover } from "../ui/Popover";
-
-const TYPE_LABEL = { note: "Note", task: "Task", meeting: "Meeting" } as const;
 
 export function InboxCard({ item, projects }: { item: Item; projects: Project[] }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const [assignOpen, setAssignOpen] = useState(false);
   const [armed, setArmed] = useState<"archive" | "delete" | null>(null);
+  const { t } = useI18n();
 
   function fail(error: unknown, snapshot: ReturnType<typeof snapshotLists>) {
     restoreLists(queryClient, snapshot);
@@ -89,8 +89,8 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
       if (context) fail(error, context.snapshot);
     },
     onSuccess: () => {
-      pushToast("Moved to trash", { href: "/trash", label: "View" }, {
-        label: "Undo",
+      pushToast(t("inbox.trashed"), { href: "/trash", label: t("inbox.view") }, {
+        label: t("inbox.undo"),
         run: () => {
           void restoreItem(item.id).then(() => invalidateItemViews(queryClient, item.id));
         },
@@ -102,47 +102,47 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
   const preview = (item.type === "meeting" ? item.transcript_raw || item.body_md : item.body_md).trim();
 
   return (
-    <article className="rounded-[10px] border border-border bg-elevated p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="font-mono text-[13px] text-fg-muted">{TYPE_LABEL[item.type]}</p>
-        <time className="font-mono text-[13px] text-fg-muted" dateTime={item.created_at}>
+    <article className="group border-b border-border-subtle py-3">
+      <div className="flex items-baseline gap-3">
+        <p className="w-16 shrink-0 text-[12px] text-fg-muted">{t(`type.${item.type}` as MessageKey)}</p>
+        <Link to={`/item/${item.id}`} className="min-w-0 flex-1 truncate">
+          {item.title || t("common.untitled")}
+        </Link>
+        <time className="shrink-0 font-mono text-[12px] text-fg-muted" dateTime={item.created_at}>
           {relativeTime(item.created_at)}
         </time>
       </div>
-      <Link to={`/item/${item.id}`} className="mt-1 block text-[16px]">
-        {item.title || "Untitled"}
-      </Link>
-      {preview ? <p className="mt-1 line-clamp-2 text-fg-secondary">{preview}</p> : null}
-      <div className="mt-3 flex flex-wrap gap-2">
+      {preview ? <p className="mt-1 line-clamp-1 pl-[4.75rem] text-[13px] text-fg-secondary">{preview}</p> : null}
+      <div className="mt-1 flex flex-wrap gap-1 pl-[4.75rem]">
         <Popover
           open={assignOpen}
           onClose={() => setAssignOpen(false)}
           trigger={
-            <Button
-              variant="ghost"
-              className="border border-border"
+            <button
+              type="button"
+              className="min-h-7 rounded-[6px] px-1.5 text-[12px] text-fg-secondary hover:bg-interactive hover:text-fg"
               onClick={() => {
                 setArmed(null);
                 setAssignOpen((value) => !value);
               }}
             >
-              Assign
-            </Button>
+              {t("inbox.assign")}
+            </button>
           }
         >
           <ul className="max-h-64 overflow-y-auto">
-            {projects.length === 0 ? <li className="px-3 py-2 text-fg-muted">No projects</li> : null}
+            {projects.length === 0 ? <li className="px-3 py-2 text-[13px] text-fg-muted">{t("inbox.noProjects")}</li> : null}
             {projects.map((project) => (
               <li key={project.id}>
                 <button
                   type="button"
-                  className="flex min-h-11 w-full items-center gap-2 rounded-[8px] px-3 text-left hover:bg-interactive"
+                  className="flex min-h-8 w-full items-center gap-2 rounded-[8px] px-2 text-left text-[13px] hover:bg-interactive"
                   onClick={() => {
                     setAssignOpen(false);
                     assign.mutate(project.id);
                   }}
                 >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: project.color }} />
+                  <ContextMark icon={project.context.icon} color={project.context.color} size={16} />
                   <span className="truncate">{project.name}</span>
                 </button>
               </li>
@@ -150,20 +150,20 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
           </ul>
         </Popover>
         {item.type === "note" ? (
-          <Button
-            variant="ghost"
-            className="border border-border"
+          <button
+            type="button"
+            className="min-h-7 rounded-[6px] px-1.5 text-[12px] text-fg-secondary hover:bg-interactive hover:text-fg"
             onClick={() => {
               setArmed(null);
               convert.mutate();
             }}
           >
-            Convert
-          </Button>
+            {t("inbox.convert")}
+          </button>
         ) : null}
-        <Button
-          variant="ghost"
-          className="border border-border"
+        <button
+          type="button"
+          className="min-h-7 rounded-[6px] px-1.5 text-[12px] text-fg-secondary hover:bg-interactive hover:text-fg"
           onClick={() => {
             if (armed !== "archive") {
               setArmed("archive");
@@ -172,11 +172,14 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
             archive.mutate();
           }}
         >
-          {armed === "archive" ? "Archive?" : "Archive"}
-        </Button>
-        <Button
-          variant="ghost"
-          className={cn("border border-border", armed === "delete" && "text-status-blocked")}
+          {armed === "archive" ? t("inbox.archiveConfirm") : t("inbox.archive")}
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "min-h-7 rounded-[6px] px-1.5 text-[12px] text-fg-secondary hover:bg-interactive hover:text-fg",
+            armed === "delete" && "text-status-blocked",
+          )}
           onClick={() => {
             if (armed !== "delete") {
               setArmed("delete");
@@ -185,8 +188,8 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
             remove.mutate();
           }}
         >
-          {armed === "delete" ? "Delete?" : "Delete"}
-        </Button>
+          {armed === "delete" ? t("inbox.deleteConfirm") : t("inbox.delete")}
+        </button>
       </div>
     </article>
   );

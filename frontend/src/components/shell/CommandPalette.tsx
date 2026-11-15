@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
 import { searchItems } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/cn";
 import { searchTokens } from "../../lib/dates";
 import { queryKeys } from "../../lib/queryKeys";
@@ -25,6 +26,7 @@ export function CommandPalette() {
   const contextId = useUi((state) => state.contextId);
   const contexts = useContexts();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [active, setActive] = useState(0);
@@ -50,12 +52,12 @@ export function CommandPalette() {
   const rows = useMemo<Row[]>(() => {
     const needle = query.trim().toLowerCase();
     const actions: Array<Extract<Row, { kind: "action" }>> = [
-      { kind: "action", id: "note", label: "New note", icon: null, color: null, run: () => openCapture({ type: "note", projectId: null }) },
-      { kind: "action", id: "task", label: "New task", icon: null, color: null, run: () => openCapture({ type: "task" }) },
+      { kind: "action", id: "note", label: t("search.newNote"), icon: null, color: null, run: () => openCapture({ type: "note", projectId: null }) },
+      { kind: "action", id: "task", label: t("search.newTask"), icon: null, color: null, run: () => openCapture({ type: "task" }) },
       {
         kind: "action",
         id: "transcript",
-        label: "Paste transcript",
+        label: t("search.transcript"),
         icon: null,
         color: null,
         run: () => openCapture({ type: "transcript", projectId: null }),
@@ -63,7 +65,7 @@ export function CommandPalette() {
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,
         id: context.id,
-        label: `Switch to ${context.name}`,
+        label: t("search.switch", { name: context.name }),
         icon: context.icon,
         color: context.color,
         run: () => setContextId(context.id),
@@ -81,7 +83,7 @@ export function CommandPalette() {
         }))
       : [];
     return [...matched, ...hits];
-  }, [contexts.data?.contexts, openCapture, query, search.data?.results, searchable, setContextId]);
+  }, [contexts.data?.contexts, openCapture, query, search.data?.results, searchable, setContextId, t]);
 
   if (!open) return null;
 
@@ -138,8 +140,8 @@ export function CommandPalette() {
       <ul id="command-palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto px-2 pb-2">
         {rows.map((row, index) => (
           <li key={`${row.kind}-${row.id}`} id={`palette-${row.id}`} role="option" aria-selected={index === clamped}>
-            {index === 0 && row.kind === "action" ? <PaletteHeading>Actions</PaletteHeading> : null}
-            {index === firstHit ? <PaletteHeading>Notes</PaletteHeading> : null}
+            {index === 0 && row.kind === "action" ? <PaletteHeading>{t("search.actions")}</PaletteHeading> : null}
+            {index === firstHit ? <PaletteHeading>{t("search.notes")}</PaletteHeading> : null}
             <button
               type="button"
               className={cn(
@@ -168,10 +170,10 @@ export function CommandPalette() {
           </li>
         ))}
         {searchable && search.isFetching && rows.every((row) => row.kind === "action") ? (
-          <li className="px-3 py-2 font-mono text-[13px] text-fg-muted">Searching…</li>
+          <li className="px-3 py-2 font-mono text-[13px] text-fg-muted">{t("search.searching")}</li>
         ) : null}
         {searchable && !search.isFetching && search.data?.results.length === 0 && rows.every((row) => row.kind === "action") ? (
-          <li className="px-3 py-2 text-fg-muted">No matches</li>
+          <li className="px-3 py-2 text-fg-muted">{t("search.none")}</li>
         ) : null}
       </ul>
     </Modal>

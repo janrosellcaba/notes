@@ -153,7 +153,7 @@ export function getProject(id: string): Promise<Project> {
 export function createProject(body: {
   name: string;
   context_id: string;
-  color: string | null;
+  color?: string | null;
 }): Promise<Project> {
   return api<Project>("/api/projects", { method: "POST", body });
 }

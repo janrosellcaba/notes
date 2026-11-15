@@ -222,6 +222,7 @@ class Database:
             "recurrence": "TEXT",
             "recurrence_weekday": "INTEGER",
             "recurrence_monthday": "INTEGER",
+            "context_id": "TEXT",
         }
         for name, kind in additions.items():
             if name not in present:

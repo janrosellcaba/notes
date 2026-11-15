@@ -14,6 +14,7 @@ import { BottomNav } from "./BottomNav";
 import { CommandPalette } from "./CommandPalette";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { Tour } from "./Tour";
 
 export function AppShell() {
   const editor = useMatch("/item/:itemId");
@@ -61,6 +62,7 @@ export function AppShell() {
       </div>
       {editor ? null : <BottomNav />}
       <Toasts />
+      <Tour />
       <CommandPalette />
       {capture?.type === "note" ? (
         <QuickNoteSheet projectId={capture.projectId} onClose={closeCapture} />

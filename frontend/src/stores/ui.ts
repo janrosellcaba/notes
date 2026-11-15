@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { readBoardOrder, writeBoardOrder, type BoardStatus } from "../lib/board";
 import { applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
 
 export type TasksView = "list" | "board";
@@ -55,6 +56,8 @@ type UiState = {
   editorPreview: EditorPreview;
   calendarSlotOpen: boolean;
   theme: Theme;
+  boardOrder: BoardStatus[];
+  tourStep: number | null;
   paletteOpen: boolean;
   capture: CaptureRequest | null;
   overlays: Overlay[];
@@ -65,6 +68,9 @@ type UiState = {
   setEditorPreview: (mode: EditorPreview) => void;
   setCalendarSlotOpen: (open: boolean) => void;
   setTheme: (theme: Theme) => void;
+  setBoardOrder: (order: BoardStatus[]) => void;
+  moveBoardColumn: (status: BoardStatus, direction: -1 | 1) => void;
+  setTourStep: (step: number | null) => void;
   setPaletteOpen: (open: boolean) => void;
   openCapture: (capture: CaptureRequest) => void;
   closeCapture: () => void;
@@ -82,6 +88,8 @@ export const useUi = create<UiState>((set, get) => ({
   editorPreview: read(KEYS.editorPreview) === "preview" ? "preview" : "edit",
   calendarSlotOpen: readBool(KEYS.calendarSlotOpen, true),
   theme: readTheme(),
+  boardOrder: readBoardOrder(),
+  tourStep: null,
   paletteOpen: false,
   capture: null,
   overlays: [],
@@ -111,6 +119,23 @@ export const useUi = create<UiState>((set, get) => ({
     applyTheme(theme);
     set({ theme });
   },
+  setBoardOrder: (boardOrder) => {
+    writeBoardOrder(boardOrder);
+    set({ boardOrder });
+  },
+  moveBoardColumn: (status, direction) => {
+    const order = [...get().boardOrder];
+    const index = order.indexOf(status);
+    const next = index + direction;
+    if (index < 0 || next < 0 || next >= order.length) return;
+    const swap = order[next];
+    if (!swap) return;
+    order[next] = status;
+    order[index] = swap;
+    writeBoardOrder(order);
+    set({ boardOrder: order });
+  },
+  setTourStep: (tourStep) => set({ tourStep }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   openCapture: (capture) => set({ capture, paletteOpen: false }),
   closeCapture: () => set({ capture: null }),

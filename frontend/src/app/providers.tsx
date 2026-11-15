@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router";
 
 import { ApiError } from "../lib/api";
+import { I18nProvider } from "../lib/i18n";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,7 +19,9 @@ const queryClient = new QueryClient({
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
+      <I18nProvider>
+        <BrowserRouter>{children}</BrowserRouter>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

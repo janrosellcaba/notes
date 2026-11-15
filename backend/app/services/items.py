@@ -59,7 +59,7 @@ c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color, c.
 _FROM = """
 FROM items i
 LEFT JOIN projects p ON p.id = i.project_id
-LEFT JOIN contexts c ON c.id = p.context_id
+LEFT JOIN contexts c ON c.id = COALESCE(p.context_id, i.context_id)
 """
 
 
@@ -195,12 +195,14 @@ async def list_items(
         clauses.append("i.type = ?")
         params.append(type)
     if project_id == "none":
-        clauses.append("i.project_id IS NULL")
+        clauses.append(
+            "i.project_id IS NULL AND i.context_id IS NULL AND i.due_on IS NULL AND i.daily_on IS NULL"
+        )
     elif project_id is not None:
         clauses.append("i.project_id = ?")
         params.append(project_id)
     if context_id is not None:
-        clauses.append("(i.project_id IS NULL OR c.id = ?)")
+        clauses.append("(c.id = ? OR (i.project_id IS NULL AND i.context_id IS NULL))")
         params.append(context_id)
     if pinned is not None:
         clauses.append("i.pinned = ?")
@@ -352,6 +354,7 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
         "recurrence_weekday": weekday,
         "recurrence_monthday": monthday,
         "project_id": body.project_id,
+        "context_id": None if body.project_id else body.context_id,
         "status": status,
         "priority": priority,
         "due_on": due_on,
@@ -389,6 +392,8 @@ async def create_item(
                 return await get_item(tx, existing["item_id"]), False
         if prepared["project_id"] is not None:
             await require_active_project(tx, prepared["project_id"])
+        elif prepared["context_id"] is not None:
+            await require_context(tx, prepared["context_id"])
         if prepared["type"] == "task":
             prepared["position"] = await _next_position(tx, prepared["project_id"], prepared["status"])
         now = utc_now()
@@ -397,10 +402,10 @@ async def create_item(
         await tx.execute(
             """
             INSERT INTO items (
-              id, type, title, body_md, project_id, status, priority, due_on, completed_at,
+              id, type, title, body_md, project_id, context_id, status, priority, due_on, completed_at,
               position, pinned, transcript_raw, external_url, recurrence, recurrence_weekday,
               recurrence_monthday, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item_id,
@@ -408,6 +413,7 @@ async def create_item(
                 prepared["title"],
                 prepared["body_md"],
                 prepared["project_id"],
+                prepared["context_id"],
                 prepared["status"],
                 prepared["priority"],
                 prepared["due_on"],

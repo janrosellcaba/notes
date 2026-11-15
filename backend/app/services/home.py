@@ -28,10 +28,14 @@ async def home_feed(db: Database, *, context_id: str | None, today: str) -> Home
     context_sql = ""
     context_params: tuple[str, ...] = ()
     if context_id is not None:
-        context_sql = "AND (i.project_id IS NULL OR c.id = ?)"
+        context_sql = "AND (c.id = ? OR (i.project_id IS NULL AND i.context_id IS NULL))"
         context_params = (context_id,)
     count = await db.fetchone(
-        "SELECT COUNT(*) AS n FROM items WHERE project_id IS NULL AND archived_at IS NULL AND deleted_at IS NULL"
+        """
+        SELECT COUNT(*) AS n FROM items
+        WHERE project_id IS NULL AND context_id IS NULL AND due_on IS NULL AND daily_on IS NULL
+          AND archived_at IS NULL AND deleted_at IS NULL
+        """
     )
     pinned_rows = await db.fetchall(
         f"""

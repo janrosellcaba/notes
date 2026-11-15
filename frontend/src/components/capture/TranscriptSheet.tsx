@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createItem, errorMessage, newIdempotencyKey, patchItem } from "../../lib/api";
+import { filedContext } from "../../lib/capture";
 import { invalidateItemViews } from "../../lib/cache";
 import { meetingTitle } from "../../lib/dates";
 import { useProjectList } from "../../lib/queries";
@@ -17,6 +18,7 @@ export function TranscriptSheet({ projectId, onClose }: { projectId: string | nu
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const contextId = useUi((state) => state.contextId);
   const projects = useProjectList("all");
   const titleRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(() => meetingTitle());
@@ -62,6 +64,7 @@ export function TranscriptSheet({ projectId, onClose }: { projectId: string | nu
             body_md: "",
             transcript_raw: current.transcript.trim() ? current.transcript : null,
             project_id: current.projectId,
+            context_id: filedContext(contextId, current.projectId),
           },
           state.current.key,
         );

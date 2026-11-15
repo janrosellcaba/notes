@@ -61,6 +61,7 @@ class ItemCreate(BaseModel):
     title: str = ""
     body_md: str = ""
     project_id: str | None = None
+    context_id: str | None = None
     status: ItemStatus | None = None
     priority: ItemPriority | None = None
     due_on: str | None = None

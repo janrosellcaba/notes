@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronDown, Layers, Plus } from "lucide-react";
 
 import { createContext, errorMessage } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/cn";
 import { useContexts } from "../../lib/queries";
 import { queryKeys } from "../../lib/queryKeys";
@@ -20,8 +21,9 @@ export function ContextSwitcher() {
   const contexts = useContexts();
   const queryClient = useQueryClient();
   const rows = (contexts.data?.contexts ?? []).slice().sort((left, right) => left.sort_order - right.sort_order);
+  const { t } = useI18n();
   const active = rows.find((context) => context.id === contextId);
-  const label = active?.name ?? "All contexts";
+  const label = active?.name ?? t("nav.all");
 
   function choose(id: string) {
     setContextId(id);
@@ -82,7 +84,7 @@ export function ContextSwitcher() {
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-[6px] bg-interactive text-fg-secondary">
               <Layers size={12} />
             </span>
-            <span className="flex-1">All contexts</span>
+            <span className="flex-1">{t("nav.all")}</span>
             {contextId === "all" ? <Check size={14} className="text-fg-muted" /> : null}
           </button>
         </li>
@@ -120,7 +122,7 @@ export function ContextSwitcher() {
                 onChange={(event) => setName(event.target.value)}
               />
               <button type="submit" className="min-h-8 rounded-[8px] bg-fg px-2 text-[13px] text-canvas">
-                Add
+                {t("nav.add")}
               </button>
             </form>
           ) : (
@@ -130,7 +132,7 @@ export function ContextSwitcher() {
               onClick={() => setAdding(true)}
             >
               <Plus size={14} />
-              New context
+              {t("nav.newContext")}
             </button>
           )}
         </li>

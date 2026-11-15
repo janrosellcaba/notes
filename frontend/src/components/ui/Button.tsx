@@ -20,7 +20,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] px-3 font-medium outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:opacity-50",
+        "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[8px] px-2.5 text-[13px] font-medium outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:opacity-50",
         variants[variant],
         className,
       )}

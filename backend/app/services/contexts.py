@@ -159,6 +159,7 @@ async def delete_context(db: Database, context_id: str) -> None:
     )
     if projects is not None and int(projects["n"]) > 0:
         raise AppError(409, "Move or delete its projects first", "context_in_use")
+    await db.execute("UPDATE items SET context_id = NULL WHERE context_id = ?", (context_id,))
     await db.execute("DELETE FROM contexts WHERE id = ?", (context_id,))
 
 

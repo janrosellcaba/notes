@@ -8,15 +8,18 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { mapItem, restoreLists, snapshotLists } from "../../lib/cache";
+import { filedContext } from "../../lib/capture";
 import { createItem, moveItem, newIdempotencyKey } from "../../lib/api";
+import { useI18n, type MessageKey } from "../../lib/i18n";
 import { useDesktop } from "../../lib/useDesktop";
 import { useUi } from "../../stores/ui";
 import type { Item, ItemStatus } from "../../types/api";
 import { DropColumn, PlainColumn } from "./Column";
-import { COLUMNS, statusFromDrop, type ColumnStatus } from "./columns";
+import { statusFromDrop, type ColumnStatus } from "./columns";
 
 function sameProject(left: Item, right: Item): boolean {
   return (left.project?.id ?? null) === (right.project?.id ?? null);
@@ -46,10 +49,41 @@ export function Board({
   const desktop = useDesktop();
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const contextId = useUi((state) => state.contextId);
+  const order = useUi((state) => state.boardOrder);
+  const { t } = useI18n();
+  const [openEmpty, setOpenEmpty] = useState<string[]>([]);
+  const [closed, setClosed] = useState<string[]>([]);
+
+  function minimized(status: ColumnStatus, count: number) {
+    if (count === 0) return !openEmpty.includes(status);
+    return closed.includes(status);
+  }
+
+  function toggle(status: ColumnStatus, count: number) {
+    if (count === 0) {
+      setOpenEmpty((current) =>
+        current.includes(status) ? current.filter((entry) => entry !== status) : [...current, status],
+      );
+      return;
+    }
+    setClosed((current) =>
+      current.includes(status) ? current.filter((entry) => entry !== status) : [...current, status],
+    );
+  }
 
   async function addCard(status: ColumnStatus, title: string) {
     try {
-      await createItem({ type: "task", title, status, project_id: projectId }, newIdempotencyKey());
+      await createItem(
+        {
+          type: "task",
+          title,
+          status,
+          project_id: projectId,
+          context_id: filedContext(contextId, projectId),
+        },
+        newIdempotencyKey(),
+      );
       await queryClient.invalidateQueries({ queryKey: ["items"] });
     } catch (error) {
       pushToast(error instanceof Error ? error.message : "Could not add the card");
@@ -100,21 +134,36 @@ export function Board({
   if (!desktop) {
     return (
       <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
-        {COLUMNS.map((column) => (
-          <PlainColumn
-            key={column.status}
-            label={column.label}
-            items={columnItems(items, column.status)}
-            showProject={showProject}
-            onAdd={(title) => void addCard(column.status, title)}
-            onMove={(item, status) => void move(item, status, null, null)}
-          />
-        ))}
+        {order.map((status) => {
+          const rows = columnItems(items, status);
+          return (
+            <PlainColumn
+              key={status}
+              label={t(`board.${status}` as MessageKey)}
+              items={rows}
+              showProject={showProject}
+              minimized={minimized(status, rows.length)}
+              onToggle={() => toggle(status, rows.length)}
+              onAdd={(title) => void addCard(status, title)}
+              onMove={(item, next) => void move(item, next, null, null)}
+            />
+          );
+        })}
       </div>
     );
   }
 
-  return <DesktopBoard items={items} showProject={showProject} onAdd={addCard} onMove={move} onDragEnd={onDragEnd} />;
+  return (
+    <DesktopBoard
+      items={items}
+      showProject={showProject}
+      onAdd={addCard}
+      onMove={move}
+      onDragEnd={onDragEnd}
+      minimized={minimized}
+      onToggle={toggle}
+    />
+  );
 }
 
 function DesktopBoard({
@@ -123,13 +172,19 @@ function DesktopBoard({
   onAdd,
   onMove,
   onDragEnd,
+  minimized,
+  onToggle,
 }: {
   items: Item[];
   showProject: boolean;
   onAdd: (status: ColumnStatus, title: string) => Promise<void>;
   onMove: (item: Item, status: ColumnStatus, beforeId: string | null, afterId: string | null) => Promise<void>;
   onDragEnd: (event: DragEndEvent) => void;
+  minimized: (status: ColumnStatus, count: number) => boolean;
+  onToggle: (status: ColumnStatus, count: number) => void;
 }) {
+  const order = useUi((state) => state.boardOrder);
+  const { t } = useI18n();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -137,17 +192,22 @@ function DesktopBoard({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-4">
-        {COLUMNS.map((column) => (
-          <DropColumn
-            key={column.status}
-            status={column.status}
-            label={column.label}
-            items={columnItems(items, column.status)}
-            showProject={showProject}
-            onAdd={(title) => void onAdd(column.status, title)}
-            onMove={(item, status) => void onMove(item, status, null, null)}
-          />
-        ))}
+        {order.map((status) => {
+          const rows = columnItems(items, status);
+          return (
+            <DropColumn
+              key={status}
+              status={status}
+              label={t(`board.${status}` as MessageKey)}
+              items={rows}
+              showProject={showProject}
+              minimized={minimized(status, rows.length)}
+              onToggle={() => onToggle(status, rows.length)}
+              onAdd={(title) => void onAdd(status, title)}
+              onMove={(item, next) => void onMove(item, next, null, null)}
+            />
+          );
+        })}
       </div>
     </DndContext>
   );

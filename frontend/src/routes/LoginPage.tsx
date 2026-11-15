@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, getMe, login, register } from "../lib/api";
 import { safeNext } from "../lib/dates";
+import { useI18n } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { BrandMark } from "../components/ui/BrandMark";
 import { Button } from "../components/ui/Button";
@@ -21,6 +22,7 @@ export function LoginPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const { t } = useI18n();
 
   if (me.data) return <Navigate to={next} replace />;
 
@@ -33,10 +35,10 @@ export function LoginPage() {
       queryClient.setQueryData(queryKeys.me, user);
       void navigate(next, { replace: true });
     } catch (caught) {
-      if (caught instanceof ApiError && caught.status === 401) setError("Invalid username or password");
-      else if (caught instanceof ApiError && caught.status === 403) setError("Invalid code");
-      else if (caught instanceof ApiError && caught.status === 409) setError("That username is taken");
-      else if (caught instanceof ApiError && caught.status === 429) setError("Too many attempts. Wait a few minutes.");
+      if (caught instanceof ApiError && caught.status === 401) setError(t("login.invalid"));
+      else if (caught instanceof ApiError && caught.status === 403) setError(t("login.badCode"));
+      else if (caught instanceof ApiError && caught.status === 409) setError(t("login.taken"));
+      else if (caught instanceof ApiError && caught.status === 429) setError(t("login.limited"));
       else if (caught instanceof ApiError && caught.status === 422) setError(caught.message);
       else setError("Could not reach the server");
       setPending(false);
@@ -55,7 +57,7 @@ export function LoginPage() {
         </div>
         <div className="flex flex-col gap-4">
           <TextField
-            label="Username"
+            label={t("login.username")}
             name="username"
             autoComplete="username"
             autoFocus
@@ -64,7 +66,7 @@ export function LoginPage() {
             required
           />
           <TextField
-            label="Password"
+            label={t("login.password")}
             name="password"
             type="password"
             autoComplete={creating ? "new-password" : "current-password"}
@@ -75,7 +77,7 @@ export function LoginPage() {
           />
           {creating ? (
             <TextField
-              label="Code"
+              label={t("login.code")}
               name="code"
               autoComplete="off"
               value={code}
@@ -86,7 +88,7 @@ export function LoginPage() {
         </div>
         {error ? <p className="mt-4 text-priority-urgent">{error}</p> : null}
         <Button type="submit" className="mt-6 w-full" disabled={pending} aria-busy={pending}>
-          {creating ? "Create account" : "Continue"}
+          {creating ? t("login.create") : t("login.continue")}
         </Button>
         <Button
           type="button"
@@ -97,7 +99,7 @@ export function LoginPage() {
             setError("");
           }}
         >
-          {creating ? "Back to sign in" : "Create account"}
+          {creating ? t("login.back") : t("login.create")}
         </Button>
       </form>
     </main>

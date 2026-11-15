@@ -88,6 +88,7 @@ export type ItemCreate = {
   title?: string;
   body_md?: string;
   project_id?: string | null;
+  context_id?: string | null;
   status?: ItemStatus | null;
   priority?: ItemPriority | null;
   due_on?: string | null;

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
 import { Button } from "../components/ui/Button";
+import { Modal } from "../components/ui/Modal";
 import {
   changePassword,
   createContext,
@@ -17,16 +18,18 @@ import {
   patchContext,
   patchSettings,
 } from "../lib/api";
+import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
 import { useUi } from "../stores/ui";
 
 const SECTIONS = [
-  { id: "account", label: "Account" },
-  { id: "preferences", label: "Preferences" },
-  { id: "contexts", label: "Contexts" },
-  { id: "data", label: "Data" },
-  { id: "connections", label: "Connections" },
+  { id: "account", label: "settings.account" },
+  { id: "preferences", label: "settings.preferences" },
+  { id: "contexts", label: "settings.contexts" },
+  { id: "guide", label: "settings.guide" },
+  { id: "data", label: "settings.data" },
+  { id: "connections", label: "settings.connections" },
 ] as const;
 
 const fieldClass =
@@ -41,6 +44,10 @@ export function SettingsPage() {
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
   const setContextId = useUi((state) => state.setContextId);
+  const boardOrder = useUi((state) => state.boardOrder);
+  const moveBoardColumn = useUi((state) => state.moveBoardColumn);
+  const setTourStep = useUi((state) => state.setTourStep);
+  const { t, locale, setLocale } = useI18n();
   const theme = useUi((state) => state.theme);
   const setTheme = useUi((state) => state.setTheme);
   const [timezone, setTimezone] = useState<string | null>(null);
@@ -50,6 +57,7 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordPending, setPasswordPending] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
   const zone = timezone ?? settings.data?.timezone ?? "";
 
@@ -144,7 +152,8 @@ export function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      pushToast("Password changed");
+      pushToast(t("settings.passwordSaved"));
+      setPasswordOpen(false);
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Could not change the password");
     } finally {
@@ -165,10 +174,8 @@ export function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <header className="mb-6">
-        <h1 className="text-[20px]">Settings</h1>
-        <p className="mt-1 max-w-xl text-[13px] text-fg-muted">
-          Account, preferences, and the data for this workspace.
-        </p>
+        <h1 className="text-[20px]">{t("settings.title")}</h1>
+        <p className="mt-1 max-w-xl text-[13px] text-fg-muted">{t("settings.lead")}</p>
       </header>
       <div className="md:grid md:grid-cols-[11rem_minmax(0,1fr)] md:items-start md:gap-8">
         <nav className="mb-6 flex gap-1 overflow-x-auto md:sticky md:top-0 md:mb-0 md:flex-col" aria-label="Settings sections">
@@ -180,93 +187,142 @@ export function SettingsPage() {
                 activeSection === section.id ? "bg-interactive text-fg" : "text-fg-secondary"
               }`}
             >
-              {section.label}
+              {t(section.label)}
             </a>
           ))}
         </nav>
         <div className="flex flex-col gap-6">
-          <Panel id="account" title="Account" description="Who is signed in, and the password for this browser.">
-            <div className="flex items-baseline justify-between gap-4 border-b border-border-subtle pb-4">
+          <Panel id="account" title={t("settings.account")} description={t("settings.accountDetail")}>
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[13px] text-fg-secondary">Signed in as</p>
+                <p className="text-[13px] text-fg-secondary">{t("settings.signedIn")}</p>
                 <p className="mt-0.5 font-medium">{me.data?.username ?? "…"}</p>
               </div>
+              <Button variant="secondary" onClick={() => setPasswordOpen(true)}>
+                {t("settings.changePassword")}
+              </Button>
             </div>
-            <form
-              className="mt-4 grid gap-4 sm:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void savePassword();
-              }}
-            >
-              <div className="sm:col-span-2">
-                <Field label="Current password">
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    className={fieldClass}
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                  />
-                </Field>
-              </div>
-              <Field label="New password">
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  className={fieldClass}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                />
-              </Field>
-              <Field label="Confirm new password">
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  className={fieldClass}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                />
-              </Field>
-              <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className={passwordError ? "text-[13px] text-priority-urgent" : "text-[13px] text-fg-muted"}>
-                  {passwordError || "At least 8 characters. Other sessions for this account are signed out."}
-                </p>
-                <Button
-                  type="submit"
-                  disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
-                  aria-busy={passwordPending}
+            {passwordOpen ? (
+              <Modal title={t("settings.changePassword")} onClose={() => setPasswordOpen(false)} className="max-w-md">
+                <form
+                  className="flex flex-col gap-4 p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void savePassword();
+                  }}
                 >
-                  Change password
-                </Button>
-              </div>
-            </form>
+                  <h2 className="text-[16px]">{t("settings.changePassword")}</h2>
+                  <Field label={t("settings.current")}>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      className={fieldClass}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                    />
+                  </Field>
+                  <Field label={t("settings.newPassword")}>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      className={fieldClass}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                  </Field>
+                  <Field label={t("settings.confirm")}>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      className={fieldClass}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                    />
+                  </Field>
+                  <p className={passwordError ? "text-[13px] text-priority-urgent" : "text-[13px] text-fg-muted"}>
+                    {passwordError || t("settings.passwordHint")}
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setPasswordOpen(false)}>
+                      {t("common.cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
+                      aria-busy={passwordPending}
+                    >
+                      {t("settings.changePassword")}
+                    </Button>
+                  </div>
+                </form>
+              </Modal>
+            ) : null}
           </Panel>
 
-          <Panel id="preferences" title="Preferences" description="Appearance, and how dates and the home feed are calculated.">
+          <Panel id="preferences" title={t("settings.preferences")} description={t("settings.preferencesDetail")}>
             <div className="flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[13px] text-fg-secondary">Appearance</p>
-                <p className="mt-0.5 text-[13px] text-fg-muted">Saved on this browser. Light mode inverts the logo.</p>
-              </div>
-              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label="Appearance">
+              <p className="text-[13px] text-fg-secondary">{t("settings.appearance")}</p>
+              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.appearance")}>
                 {(["dark", "light"] as const).map((option) => (
                   <button
                     key={option}
                     type="button"
                     role="radio"
                     aria-checked={theme === option}
-                    className={`min-h-9 rounded-[6px] px-3 capitalize ${theme === option ? "bg-fg text-canvas" : "text-fg-secondary"}`}
+                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${theme === option ? "bg-interactive text-fg" : "text-fg-secondary"}`}
                     onClick={() => setTheme(option)}
                   >
-                    {option}
+                    {t(option === "dark" ? "settings.dark" : "settings.light")}
                   </button>
                 ))}
               </div>
             </div>
+            <div className="mt-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] text-fg-secondary">{t("settings.language")}</p>
+                <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.languageDetail")}</p>
+              </div>
+              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.language")}>
+                {(
+                  [
+                    ["en", "English"],
+                    ["ca", "Català"],
+                    ["es", "Español"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={locale === value}
+                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${locale === value ? "bg-interactive text-fg" : "text-fg-secondary"}`}
+                    onClick={() => setLocale(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 border-b border-border-subtle pb-4">
+              <p className="text-[13px] text-fg-secondary">{t("settings.board")}</p>
+              <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.boardDetail")}</p>
+              <ul className="mt-3 flex flex-col">
+                {boardOrder.map((status, index) => (
+                  <li key={status} className="flex items-center gap-2 border-t border-border-subtle py-2 first:border-t-0">
+                    <span className="flex-1 text-[13px]">{t(`board.${status}` as MessageKey)}</span>
+                    <button type="button" aria-label={`${status} up`} disabled={index === 0} className="text-fg-muted disabled:opacity-30" onClick={() => moveBoardColumn(status, -1)}>
+                      <ChevronUp size={16} />
+                    </button>
+                    <button type="button" aria-label={`${status} down`} disabled={index === boardOrder.length - 1} className="text-fg-muted disabled:opacity-30" onClick={() => moveBoardColumn(status, 1)}>
+                      <ChevronDown size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label htmlFor="timezone" className="text-[13px] text-fg-secondary">
-                Timezone
+                {t("settings.timezone")}
               </label>
               <select
                 id="timezone"
@@ -290,7 +346,7 @@ export function SettingsPage() {
             </div>
           </Panel>
 
-          <Panel id="contexts" title="Contexts" description="Add as many as you need. Each one keeps its own projects, tasks, and inbox.">
+          <Panel id="contexts" title={t("settings.contexts")} description={t("settings.contextsDetail")}>
             <form
               className="mb-4 flex items-center gap-2"
               onSubmit={(event) => {
@@ -340,7 +396,21 @@ export function SettingsPage() {
             </ul>
           </Panel>
 
-          <Panel id="data" title="Data" description="A copy you can keep outside the server. The daily backup on the VPS stays in place.">
+          <Panel id="guide" title={t("settings.guide")} description={t("settings.guideDetail")}>
+            <ol className="flex flex-col gap-4">
+              {([1, 2, 3, 4, 5] as const).map((step) => (
+                <li key={step}>
+                  <p className="text-[13px] font-medium">{t(`guide.${step}.title` as MessageKey)}</p>
+                  <p className="mt-1 text-[13px] text-fg-secondary">{t(`guide.${step}.body` as MessageKey)}</p>
+                </li>
+              ))}
+            </ol>
+            <Button className="mt-4" variant="secondary" onClick={() => setTourStep(0)}>
+              {t("settings.startTour")}
+            </Button>
+          </Panel>
+
+          <Panel id="data" title={t("settings.data")} description="A copy you can keep outside the server. The daily backup on the VPS stays in place.">
             <div className="flex flex-col gap-3">
               <ExportRow
                 title="SQLite snapshot"

@@ -60,7 +60,7 @@ async def search_items(
     clauses = ["fts_search MATCH ?", "i.archived_at IS NULL", "i.deleted_at IS NULL"]
     params: list[Any] = [match]
     if context_id is not None:
-        clauses.append("(i.project_id IS NULL OR c.id = ?)")
+        clauses.append("(c.id = ? OR (i.project_id IS NULL AND i.context_id IS NULL))")
         params.append(context_id)
     params.append(limit)
     try:
@@ -75,7 +75,7 @@ async def search_items(
             FROM fts_search
             JOIN items i ON i.rowid = fts_search.rowid
             LEFT JOIN projects p ON p.id = i.project_id
-            LEFT JOIN contexts c ON c.id = p.context_id
+            LEFT JOIN contexts c ON c.id = COALESCE(p.context_id, i.context_id)
             WHERE {' AND '.join(clauses)}
             ORDER BY bm25(fts_search)
             LIMIT ?

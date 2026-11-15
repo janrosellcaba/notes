@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 
 import { createItem, errorMessage, newIdempotencyKey } from "../../lib/api";
+import { filedContext } from "../../lib/capture";
 import { insertTodayTask, invalidateItemViews, mapItem, projectRefFromCache } from "../../lib/cache";
 import { cn } from "../../lib/cn";
 import { todayISO, tomorrowISO } from "../../lib/dates";
@@ -31,6 +32,7 @@ function chipClass(active: boolean): string {
 export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const contextId = useUi((state) => state.contextId);
   const projects = useProjectList("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -87,6 +89,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
           type: "task",
           title: nextTitle,
           project_id: projectId,
+          context_id: filedContext(contextId, projectId),
           priority,
           due_on: due,
         },
