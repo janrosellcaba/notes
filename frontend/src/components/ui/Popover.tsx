@@ -30,7 +30,7 @@ export function Popover({
       {trigger}
       {open ? (
         <div
-          className={`absolute z-20 mt-1 min-w-52 rounded-[10px] border border-border bg-elevated p-1 shadow-[0_16px_48px_rgb(0_0_0/0.45)] ${className}`}
+          className={`absolute z-20 mt-1 min-w-52 rounded-[10px] border border-border bg-elevated p-1 shadow-[var(--overlay-shadow)] ${className}`}
         >
           {children}
         </div>

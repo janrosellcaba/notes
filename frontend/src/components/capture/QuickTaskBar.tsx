@@ -102,7 +102,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 px-3 md:bottom-8 md:left-1/2 md:w-[560px] md:-translate-x-1/2 md:px-0">
       <form
-        className="rounded-[10px] border border-border bg-elevated p-3 shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
+        className="rounded-[10px] border border-border bg-elevated p-3 shadow-[var(--overlay-shadow)]"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();

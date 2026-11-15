@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
+
 export type TasksView = "list" | "board";
 export type EditorPreview = "edit" | "preview";
 
@@ -19,6 +21,7 @@ const KEYS = {
   tasksView: "notes.tasksView",
   editorPreview: "notes.editorPreview",
   calendarSlotOpen: "notes.calendarSlotOpen",
+  theme: THEME_KEY,
 } as const;
 
 function read(key: string): string | null {
@@ -50,6 +53,7 @@ type UiState = {
   tasksView: TasksView;
   editorPreview: EditorPreview;
   calendarSlotOpen: boolean;
+  theme: Theme;
   paletteOpen: boolean;
   capture: CaptureRequest | null;
   overlays: Overlay[];
@@ -59,6 +63,7 @@ type UiState = {
   setTasksView: (view: TasksView) => void;
   setEditorPreview: (mode: EditorPreview) => void;
   setCalendarSlotOpen: (open: boolean) => void;
+  setTheme: (theme: Theme) => void;
   setPaletteOpen: (open: boolean) => void;
   openCapture: (capture: CaptureRequest) => void;
   closeCapture: () => void;
@@ -75,6 +80,7 @@ export const useUi = create<UiState>((set, get) => ({
   tasksView: read(KEYS.tasksView) === "board" ? "board" : "list",
   editorPreview: read(KEYS.editorPreview) === "preview" ? "preview" : "edit",
   calendarSlotOpen: readBool(KEYS.calendarSlotOpen, true),
+  theme: readTheme(),
   paletteOpen: false,
   capture: null,
   overlays: [],
@@ -98,6 +104,11 @@ export const useUi = create<UiState>((set, get) => ({
   setCalendarSlotOpen: (calendarSlotOpen) => {
     write(KEYS.calendarSlotOpen, String(calendarSlotOpen));
     set({ calendarSlotOpen });
+  },
+  setTheme: (theme) => {
+    write(KEYS.theme, theme);
+    applyTheme(theme);
+    set({ theme });
   },
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   openCapture: (capture) => set({ capture, paletteOpen: false }),

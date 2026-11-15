@@ -9,6 +9,18 @@
     <meta name="theme-color" content="#09090B" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      try {
+        if (localStorage.getItem("notes.theme") === "light") {
+          document.documentElement.dataset.theme = "light";
+          document.documentElement.style.colorScheme = "light";
+          var icon = document.querySelector('link[rel="icon"]');
+          if (icon) icon.href = "/favicon-light.svg";
+          var theme = document.querySelector('meta[name="theme-color"]');
+          if (theme) theme.setAttribute("content", "#fafafa");
+        }
+      } catch (e) {}
+    </script>
     <title>Notes</title>
   </head>
   <body>

@@ -16,7 +16,7 @@ export function SlashMenu({
   if (options.length === 0) return null;
   return (
     <ul
-      className="fixed z-50 hidden min-w-36 rounded-[10px] border border-border bg-elevated p-1 shadow-[0_16px_48px_rgb(0_0_0/0.45)] md:block"
+      className="fixed z-50 hidden min-w-36 rounded-[10px] border border-border bg-elevated p-1 shadow-[var(--overlay-shadow)] md:block"
       style={{ top, left }}
     >
       {options.map((format) => (

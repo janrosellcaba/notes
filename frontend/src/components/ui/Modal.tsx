@@ -32,7 +32,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "overlay-panel border border-border bg-elevated shadow-[0_16px_48px_rgb(0_0_0/0.45)]",
+          "overlay-panel border border-border bg-elevated shadow-[var(--overlay-shadow)]",
           align === "stretch"
             ? "h-dvh w-full md:h-auto md:max-h-[85dvh] md:w-full md:max-w-[720px] md:rounded-[10px]"
             : "w-full max-w-[560px] rounded-[10px]",

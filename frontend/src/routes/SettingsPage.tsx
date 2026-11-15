@@ -25,6 +25,8 @@ export function SettingsPage() {
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe });
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const theme = useUi((state) => state.theme);
+  const setTheme = useUi((state) => state.setTheme);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -191,8 +193,28 @@ export function SettingsPage() {
             </form>
           </Panel>
 
-          <Panel id="preferences" title="Preferences" description="How dates and the home feed are calculated.">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Panel id="preferences" title="Preferences" description="Appearance, and how dates and the home feed are calculated.">
+            <div className="flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] text-fg-secondary">Appearance</p>
+                <p className="mt-0.5 text-[13px] text-fg-muted">Saved on this browser. Light mode inverts the logo.</p>
+              </div>
+              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label="Appearance">
+                {(["dark", "light"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === option}
+                    className={`min-h-9 rounded-[6px] px-3 capitalize ${theme === option ? "bg-fg text-canvas" : "text-fg-secondary"}`}
+                    onClick={() => setTheme(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label htmlFor="timezone" className="text-[13px] text-fg-secondary">
                 Timezone
               </label>
