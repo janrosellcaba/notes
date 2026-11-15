@@ -95,6 +95,32 @@ async def test_completing_a_repeating_task_creates_the_next_one(authed: tuple[ob
     assert rent["due_on"] == "2026-02-28"
 
 
+async def test_meeting_create_keeps_notes_and_can_be_updated(authed: tuple[object, AsyncClient]) -> None:
+    _app, http = authed
+    created = await http.post(
+        "/api/items",
+        json={
+            "type": "meeting",
+            "title": "Product sync",
+            "body_md": "## Takeaways\n\n- Ship the thin slice",
+            "transcript_raw": "Speaker: let's keep notes too.",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert "thin slice" in created.json()["body_md"]
+    assert created.json()["transcript_raw"].startswith("Speaker:")
+    updated = await http.patch(
+        f"/api/items/{created.json()['id']}",
+        json={
+            "body_md": "## Takeaways\n\n- Ship the thin slice\n- Add a follow-up",
+            "transcript_raw": "Speaker: let's keep notes too.\nSpeaker: one more point.",
+        },
+    )
+    assert updated.status_code == 200
+    assert "follow-up" in updated.json()["body_md"]
+    assert "one more point" in updated.json()["transcript_raw"]
+
+
 async def test_daily_note_is_idempotent_and_stays_out_of_inbox(authed: tuple[object, AsyncClient]) -> None:
     _app, http = authed
     first = await http.put("/api/items/daily/2026-11-15")

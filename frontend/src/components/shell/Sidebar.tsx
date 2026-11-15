@@ -1,5 +1,5 @@
 import { NavLink } from "react-router";
-import { Folder, Home, ListTodo, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { CalendarDays, FileText, Folder, Home, ListTodo, PanelLeftClose, PanelLeftOpen, StickyNote } from "lucide-react";
 
 import { cn } from "../../lib/cn";
 import { useI18n } from "../../lib/i18n";
@@ -9,8 +9,11 @@ import { ContextMark } from "./ContextMark";
 
 const DESTINATIONS = [
   { to: "/", label: "nav.home", icon: Home, end: true },
-  { to: "/projects", label: "nav.projects", icon: Folder, end: false },
+  { to: "/notes", label: "nav.notes", icon: StickyNote, end: false },
+  { to: "/meetings", label: "nav.meetings", icon: FileText, end: false },
   { to: "/tasks", label: "nav.tasks", icon: ListTodo, end: false },
+  { to: "/calendar", label: "nav.calendar", icon: CalendarDays, end: false },
+  { to: "/projects", label: "nav.projects", icon: Folder, end: false },
 ] as const;
 
 export function Sidebar() {

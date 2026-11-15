@@ -13,7 +13,10 @@ const ItemPage = lazy(() => import("../routes/ItemPage"));
 import { ProjectDetailPage } from "../routes/ProjectDetailPage";
 import { ProjectsPage } from "../routes/ProjectsPage";
 import { SettingsPage } from "../routes/SettingsPage";
+import { CalendarPage } from "../routes/CalendarPage";
 import { GoPage } from "../routes/GoPage";
+import { MeetingsPage } from "../routes/MeetingsPage";
+import { NotesPage } from "../routes/NotesPage";
 import { TasksPage } from "../routes/TasksPage";
 
 function RequireAuth() {
@@ -36,6 +39,9 @@ export function AppRouter() {
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
           <Route path="inbox" element={<Navigate to="/" replace />} />
+          <Route path="notes" element={<NotesPage />} />
+          <Route path="meetings" element={<MeetingsPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route
