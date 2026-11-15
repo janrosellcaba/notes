@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
-import { createItem, listItems } from "../lib/api";
-import { filedContext } from "../lib/capture";
-import { meetingTitle, relativeTime, todayLabel } from "../lib/dates";
+import { listItems } from "../lib/api";
+import { relativeTime, todayLabel } from "../lib/dates";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
@@ -13,12 +12,10 @@ import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PinnedCard } from "../components/items/PinnedCard";
 import { TaskRow } from "../components/items/TaskRow";
-import { ChevronDown, FileText, ListTodo, Mic, PenLine } from "lucide-react";
+import { ChevronDown, FileText, ListTodo, PenLine } from "lucide-react";
 
 export function HomePage() {
-  const navigate = useNavigate();
   const openCapture = useUi((state) => state.openCapture);
-  const pushToast = useUi((state) => state.pushToast);
   const calendarOpen = useUi((state) => state.calendarSlotOpen);
   const setCalendarOpen = useUi((state) => state.setCalendarSlotOpen);
   const contextId = useUi((state) => state.contextId);
@@ -43,19 +40,6 @@ export function HomePage() {
     }, 400);
     return () => window.clearTimeout(timer);
   }, []);
-  async function openMeeting() {
-    try {
-      const meeting = await createItem({
-        type: "meeting",
-        title: meetingTitle(),
-        context_id: filedContext(contextId, null),
-      });
-      void navigate(`/item/${meeting.id}`);
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not create the meeting");
-    }
-  }
-
   const pinned = home.data?.pinned ?? [];
   const tasks = home.data?.today_tasks ?? [];
 
@@ -72,10 +56,10 @@ export function HomePage() {
             {t("home.newProject")}
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <button
             type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border-strong bg-interactive px-3 text-left text-[13px]"
+            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
             onClick={() => openCapture({ type: "note", projectId: null })}
           >
             <PenLine size={16} />
@@ -92,18 +76,10 @@ export function HomePage() {
           <button
             type="button"
             className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => void openMeeting()}
+            onClick={() => openCapture({ type: "meeting", projectId: null })}
           >
             <FileText size={16} />
             {t("home.meeting")}
-          </button>
-          <button
-            type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => openCapture({ type: "transcript", projectId: null })}
-          >
-            <Mic size={16} />
-            {t("home.transcript")}
           </button>
         </div>
       </section>

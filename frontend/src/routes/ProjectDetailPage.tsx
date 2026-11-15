@@ -193,9 +193,9 @@ export function ProjectDetailPage() {
           <button
             type="button"
             className="min-h-11 self-start rounded-[8px] px-2 text-fg-secondary hover:bg-interactive"
-            onClick={() => openCapture({ type: "transcript", projectId: current.id })}
+            onClick={() => openCapture({ type: "meeting", projectId: current.id })}
           >
-            + {t("home.transcript")}
+            + {t("home.meeting")}
           </button>
           {meetingRows.map((item) => (
             <Link key={item.id} to={`/item/${item.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] px-2 hover:bg-interactive">

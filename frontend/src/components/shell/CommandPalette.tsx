@@ -56,11 +56,11 @@ export function CommandPalette() {
       { kind: "action", id: "task", label: t("search.newTask"), icon: null, color: null, run: () => openCapture({ type: "task" }) },
       {
         kind: "action",
-        id: "transcript",
-        label: t("search.transcript"),
+        id: "meeting",
+        label: t("search.newMeeting"),
         icon: null,
         color: null,
-        run: () => openCapture({ type: "transcript", projectId: null }),
+        run: () => openCapture({ type: "meeting", projectId: null }),
       },
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,

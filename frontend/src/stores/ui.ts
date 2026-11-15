@@ -10,7 +10,7 @@ export type EditorPreview = "edit" | "preview";
 export type CaptureRequest =
   | { type: "note"; projectId: string | null }
   | { type: "task" }
-  | { type: "transcript"; projectId: string | null }
+  | { type: "meeting"; projectId: string | null }
   | { type: "project"; contextId: string | null };
 
 type Overlay = { id: string; close: () => void };

@@ -1,7 +1,5 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
-
 import { createItem, errorMessage, newIdempotencyKey } from "../../lib/api";
 import { filedContext } from "../../lib/capture";
 import { useI18n } from "../../lib/i18n";
@@ -9,18 +7,18 @@ import { insertTodayTask, invalidateItemViews, mapItem, projectRefFromCache } fr
 import { cn } from "../../lib/cn";
 import { todayISO, tomorrowISO } from "../../lib/dates";
 import { useProjectList } from "../../lib/queries";
-import { useOverlayLayer } from "../../lib/useOverlayLayer";
 import { useUi } from "../../stores/ui";
 import type { Item, ItemPriority } from "../../types/api";
-import { IconButton } from "../ui/IconButton";
+import { Button } from "../ui/Button";
+import { Modal } from "../ui/Modal";
 import { Popover } from "../ui/Popover";
 
 const PRIORITIES: ItemPriority[] = ["urgent", "high", "medium", "low", "none"];
 
 function chipClass(active: boolean): string {
   return cn(
-    "min-h-11 rounded-full border px-3 text-[14px]",
-    active ? "border-border-strong bg-interactive text-fg" : "border-border text-fg-secondary",
+    "min-h-8 rounded-[8px] border px-2.5 text-[13px]",
+    active ? "border-border-strong bg-interactive text-fg" : "border-border bg-canvas text-fg-secondary",
   );
 }
 
@@ -39,7 +37,6 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   const [priorityOpen, setPriorityOpen] = useState(false);
   const today = todayISO();
   const tomorrow = tomorrowISO();
-  useOverlayLayer(true, onClose);
 
   const project = projects.data?.projects.find((entry) => entry.id === projectId);
   const priorityLabel = t(`task.${priority}` as "task.none");
@@ -100,6 +97,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
       mapItem(queryClient, temp.id, () => saved);
       if (saved.due_on === today) insertTodayTask(queryClient, saved, today);
       invalidateItemViews(queryClient, saved.id);
+      onClose();
     } catch (error) {
       mapItem(queryClient, temp.id, () => null);
       setTitle(nextTitle);
@@ -110,29 +108,24 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 px-3 md:bottom-8 md:left-1/2 md:w-[560px] md:-translate-x-1/2 md:px-0">
+    <Modal title={t("tasks.new")} onClose={onClose}>
       <form
-        className="rounded-[10px] border border-border bg-elevated p-3 shadow-[var(--overlay-shadow)]"
+        className="flex flex-col gap-3 p-4"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            autoFocus
-            value={title}
-            aria-label={t("task.add")}
-            placeholder={t("task.add")}
-            className="min-h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none"
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <IconButton label={t("task.close")} onClick={onClose}>
-            <X size={18} />
-          </IconButton>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <input
+          ref={inputRef}
+          autoFocus
+          value={title}
+          aria-label={t("task.add")}
+          placeholder={t("task.add")}
+          className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
           <button type="button" className={chipClass(due === today)} onClick={() => setDue((value) => (value === today ? null : today))}>
             {t("task.today")}
           </button>
@@ -163,20 +156,20 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
               <li>
                 <button
                   type="button"
-                  className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left hover:bg-interactive"
+                  className="flex min-h-8 w-full items-center rounded-[8px] px-3 text-left text-[13px] hover:bg-interactive"
                   onClick={() => {
                     setProjectId(null);
                     setProjectOpen(false);
                   }}
                 >
-                  {t("inbox.title")}
+                  {t("tasks.noProject")}
                 </button>
               </li>
               {(projects.data?.projects ?? []).map((entry) => (
                 <li key={entry.id}>
                   <button
                     type="button"
-                    className="flex min-h-11 w-full items-center gap-2 rounded-[8px] px-3 text-left hover:bg-interactive"
+                    className="flex min-h-8 w-full items-center gap-2 rounded-[8px] px-3 text-left text-[13px] hover:bg-interactive"
                     onClick={() => {
                       setProjectId(entry.id);
                       setProjectOpen(false);
@@ -223,7 +216,10 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
             </ul>
           </Popover>
         </div>
+        <Button type="submit" disabled={title.trim().length === 0}>
+          {t("tasks.create")}
+        </Button>
       </form>
-    </div>
+    </Modal>
   );
 }

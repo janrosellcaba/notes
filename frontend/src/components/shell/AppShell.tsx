@@ -7,7 +7,7 @@ import { useUi } from "../../stores/ui";
 import { ProjectDialog } from "../capture/ProjectDialog";
 import { QuickNoteSheet } from "../capture/QuickNoteSheet";
 import { QuickTaskBar } from "../capture/QuickTaskBar";
-import { TranscriptSheet } from "../capture/TranscriptSheet";
+import { MeetingDialog } from "../capture/MeetingDialog";
 import { OfflineBanner } from "../ui/OfflineBanner";
 import { Toasts } from "../ui/Toast";
 import { BottomNav } from "./BottomNav";
@@ -68,8 +68,8 @@ export function AppShell() {
         <QuickNoteSheet projectId={capture.projectId} onClose={closeCapture} />
       ) : null}
       {capture?.type === "task" ? <QuickTaskBar onClose={closeCapture} /> : null}
-      {capture?.type === "transcript" ? (
-        <TranscriptSheet projectId={capture.projectId} onClose={closeCapture} />
+      {capture?.type === "meeting" ? (
+        <MeetingDialog projectId={capture.projectId} onClose={closeCapture} />
       ) : null}
       {capture?.type === "project" ? (
         <ProjectDialog contextId={capture.contextId} onClose={closeCapture} />
