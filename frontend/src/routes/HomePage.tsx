@@ -8,16 +8,14 @@ import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
 import { useHomeFeed } from "../lib/queries";
+import { MonthCalendar } from "../components/home/MonthCalendar";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PinnedCard } from "../components/items/PinnedCard";
 import { TaskRow } from "../components/items/TaskRow";
-import { ChevronDown, FileText, ListTodo, PenLine } from "lucide-react";
+import { FileText, ListTodo, PenLine } from "lucide-react";
 
 export function HomePage() {
   const openCapture = useUi((state) => state.openCapture);
-  const calendarOpen = useUi((state) => state.calendarSlotOpen);
-  const setCalendarOpen = useUi((state) => state.setCalendarSlotOpen);
   const contextId = useUi((state) => state.contextId);
   const { t } = useI18n();
   const recent = useQuery({
@@ -40,7 +38,6 @@ export function HomePage() {
     }, 400);
     return () => window.clearTimeout(timer);
   }, []);
-  const pinned = home.data?.pinned ?? [];
   const tasks = home.data?.today_tasks ?? [];
 
   return (
@@ -100,49 +97,18 @@ export function HomePage() {
           </ul>
         </section>
       ) : null}
-      <section className="flex flex-col gap-6">
-        <h2 className="text-[13px] text-fg-muted">{t("home.focus")}</h2>
+      <section>
+        <h2 className="mb-2 text-[13px] text-fg-muted">{t("home.today")}</h2>
         {home.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}
         {home.isError ? <p className="text-fg-secondary">{t("home.loadError")}</p> : null}
-        {pinned.length > 0 ? (
-          <div>
-            <h3 className="mb-2 text-[14px]">{t("home.pinned")}</h3>
-            <ul className="flex gap-3 overflow-x-auto md:grid md:grid-cols-3 md:overflow-visible">
-              {pinned.map((item) => (
-                <PinnedCard key={item.id} item={item} />
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        <div>
-          <h3 className="mb-2 text-[14px]">{t("home.today")}</h3>
-          {tasks.length === 0 ? <EmptyState>{t("home.emptyToday")}</EmptyState> : null}
-          <ul>
-            {tasks.map((item) => (
-              <TaskRow key={item.id} item={item} />
-            ))}
-          </ul>
-        </div>
-        <section className="rounded-[10px] border border-border bg-elevated">
-          <button
-            type="button"
-            className="flex min-h-11 w-full items-center justify-between px-4 text-left"
-            aria-expanded={calendarOpen}
-            onClick={() => setCalendarOpen(!calendarOpen)}
-          >
-            <span>
-              <span className="block">{t("home.upNext")}</span>
-              <span className="block text-[13px] text-fg-muted">{t("home.calendar")}</span>
-            </span>
-            <ChevronDown size={16} className={calendarOpen ? "rotate-180" : undefined} />
-          </button>
-          {calendarOpen ? (
-            <p className="border-t border-border-subtle px-4 py-3 text-fg-secondary">
-              {t("home.calendarBody")}
-            </p>
-          ) : null}
-        </section>
+        {tasks.length === 0 && !home.isPending ? <EmptyState>{t("home.emptyToday")}</EmptyState> : null}
+        <ul>
+          {tasks.map((item) => (
+            <TaskRow key={item.id} item={item} />
+          ))}
+        </ul>
       </section>
+      <MonthCalendar />
     </div>
   );
 }

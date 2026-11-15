@@ -7,7 +7,6 @@ import { queryKeys } from "../lib/queryKeys";
 import { AppShell } from "../components/shell/AppShell";
 import { CapturePage } from "../routes/CapturePage";
 import { HomePage } from "../routes/HomePage";
-import { InboxPage } from "../routes/InboxPage";
 import { LoginPage } from "../routes/LoginPage";
 
 const ItemPage = lazy(() => import("../routes/ItemPage"));
@@ -16,7 +15,6 @@ import { ProjectsPage } from "../routes/ProjectsPage";
 import { SettingsPage } from "../routes/SettingsPage";
 import { GoPage } from "../routes/GoPage";
 import { TasksPage } from "../routes/TasksPage";
-import { TrashPage } from "../routes/TrashPage";
 
 function RequireAuth() {
   const location = useLocation();
@@ -37,7 +35,7 @@ export function AppRouter() {
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
-          <Route path="inbox" element={<InboxPage />} />
+          <Route path="inbox" element={<Navigate to="/" replace />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route
@@ -49,7 +47,7 @@ export function AppRouter() {
             }
           />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="trash" element={<TrashPage />} />
+          <Route path="trash" element={<Navigate to="/" replace />} />
           <Route path="go/:title" element={<GoPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

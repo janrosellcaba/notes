@@ -20,7 +20,6 @@ export function TasksPage() {
   const setTasksView = useUi((state) => state.setTasksView);
   const contextId = useUi((state) => state.contextId);
   const pushToast = useUi((state) => state.pushToast);
-  const taskFields = useUi((state) => state.taskFields);
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const view = params.get("view") === "board" ? "board" : "list";
@@ -91,7 +90,7 @@ export function TasksPage() {
         </div>
       </div>
       {view === "board" ? (
-        <Board items={nested.roots} projectId={null} showProject={taskFields.project} />
+        <Board items={nested.roots} projectId={null} showProject />
       ) : (
         <div className="flex flex-col gap-6">
           {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">{t("tasks.empty")}</p> : null}
@@ -151,7 +150,6 @@ function TaskRow({
   onOpen: (item: Item) => void;
   onToggle: (item: Item) => void;
 }) {
-  const taskFields = useUi((state) => state.taskFields);
   const { t } = useI18n();
   const badge = item.project
     ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
@@ -170,18 +168,14 @@ function TaskRow({
       />
       <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpen(item)}>
         <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
-        {taskFields.subtasks && item.subtask_total > 0 ? (
+        {item.subtask_total > 0 ? (
           <span className="font-mono text-[12px] text-fg-muted">
             {item.subtask_done}/{item.subtask_total}
           </span>
         ) : null}
-        {taskFields.assignee && item.assignee ? <span className="truncate text-[13px] text-fg-secondary">{item.assignee}</span> : null}
-        {taskFields.starts && item.starts_on ? <span className="font-mono text-[13px] text-fg-muted">{item.starts_on}</span> : null}
-        {taskFields.due && item.due_on ? <span className="font-mono text-[13px] text-fg-muted">{item.due_on}</span> : null}
-        {taskFields.priority ? <PriorityMark priority={item.priority} /> : null}
-        {taskFields.project && badge ? (
-          <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} />
-        ) : null}
+        {item.due_on ? <span className="font-mono text-[13px] text-fg-muted">{item.due_on}</span> : null}
+        <PriorityMark priority={item.priority} />
+        {badge ? <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} /> : null}
       </button>
     </div>
   );

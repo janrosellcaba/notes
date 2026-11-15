@@ -118,7 +118,6 @@ export function TaskEditor({
   const [priority, setPriority] = useState<ItemPriority>(item.priority ?? "none");
   const [projectId, setProjectId] = useState(item.project?.id ?? "");
   const [contextId, setContextId] = useState(item.project ? "" : (item.context?.id ?? ""));
-  const [repeat, setRepeat] = useState(item.recurrence ?? "");
   const [subtask, setSubtask] = useState("");
   const children = useQuery({
     queryKey: queryKeys.items({ parent_id: item.id, type: "task", include_done: true, limit: 100 }),
@@ -207,27 +206,6 @@ export function TaskEditor({
             void save({ project_id: null, context_id: next || null });
           }}
         />
-        <label className="block text-[13px] text-fg-secondary">
-          {t("editor.repeats")}
-          <select
-            value={repeat}
-            className={fieldClass}
-            onChange={(event) => {
-              const next = event.target.value as "" | "weekly" | "monthly";
-              setRepeat(next);
-              const dueDate = due ? new Date(`${due}T00:00:00`) : new Date();
-              void save({
-                recurrence: next || null,
-                recurrence_weekday: next === "weekly" ? (dueDate.getDay() + 6) % 7 : null,
-                recurrence_monthday: next === "monthly" ? (due ? Number(due.slice(8, 10)) : 1) : null,
-              });
-            }}
-          >
-            <option value="">{t("editor.repeatNone")}</option>
-            <option value="weekly">{t("editor.repeatWeek")}</option>
-            <option value="monthly">{t("editor.repeatMonth")}</option>
-          </select>
-        </label>
         {item.parent_id ? null : (
           <div>
             <p className="text-[13px] text-fg-secondary">{t("task.subtasks")}</p>

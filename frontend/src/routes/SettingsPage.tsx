@@ -11,7 +11,6 @@ import {
   createContext,
   deleteContext,
   downloadFile,
-  getIntegrations,
   getMe,
   getSettings,
   moveContext,
@@ -19,8 +18,6 @@ import {
   patchSettings,
 } from "../lib/api";
 import { useI18n, type MessageKey } from "../lib/i18n";
-import { TASK_FIELDS, type TaskField } from "../lib/taskFields";
-import { modKeyLabel } from "../lib/shortcuts";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -29,10 +26,7 @@ const SECTIONS = [
   { id: "account", label: "settings.account" },
   { id: "preferences", label: "settings.preferences" },
   { id: "contexts", label: "settings.contexts" },
-  { id: "guide", label: "settings.guide" },
-  { id: "shortcuts", label: "settings.shortcuts" },
   { id: "data", label: "settings.data" },
-  { id: "connections", label: "settings.connections" },
 ] as const;
 
 const fieldClass =
@@ -41,17 +35,13 @@ const fieldClass =
 export function SettingsPage() {
   const contexts = useContexts();
   const settings = useQuery({ queryKey: queryKeys.settings, queryFn: getSettings });
-  const integrations = useQuery({ queryKey: queryKeys.integrations, queryFn: getIntegrations });
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe });
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
   const setContextId = useUi((state) => state.setContextId);
   const boardOrder = useUi((state) => state.boardOrder);
-  const taskFields = useUi((state) => state.taskFields);
-  const setTaskField = useUi((state) => state.setTaskField);
   const moveBoardColumn = useUi((state) => state.moveBoardColumn);
-  const setTourStep = useUi((state) => state.setTourStep);
   const { t, locale, setLocale } = useI18n();
   const theme = useUi((state) => state.theme);
   const setTheme = useUi((state) => state.setTheme);
@@ -325,25 +315,6 @@ export function SettingsPage() {
                 ))}
               </ul>
             </div>
-            <div className="mt-4 border-b border-border-subtle pb-4">
-              <p className="text-[13px] text-fg-secondary">{t("settings.taskFields")}</p>
-              <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.taskFieldsDetail")}</p>
-              <ul className="mt-3 flex flex-col">
-                {TASK_FIELDS.map((field) => (
-                  <li key={field}>
-                    <label className="flex min-h-8 items-center justify-between gap-3 text-[13px]">
-                      {t(taskFieldLabel(field))}
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={taskFields[field]}
-                        onChange={(event) => setTaskField(field, event.target.checked)}
-                      />
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label htmlFor="timezone" className="text-[13px] text-fg-secondary">
                 {t("settings.timezone")}
@@ -420,29 +391,6 @@ export function SettingsPage() {
             </ul>
           </Panel>
 
-          <Panel id="guide" title={t("settings.guide")} description={t("settings.guideDetail")}>
-            <ol className="flex flex-col gap-4">
-              {([1, 2, 3, 4, 5] as const).map((step) => (
-                <li key={step}>
-                  <p className="text-[13px] font-medium">{t(`guide.${step}.title` as MessageKey)}</p>
-                  <p className="mt-1 text-[13px] text-fg-secondary">{t(`guide.${step}.body` as MessageKey)}</p>
-                </li>
-              ))}
-            </ol>
-            <Button className="mt-4" variant="secondary" onClick={() => setTourStep(0)}>
-              {t("settings.startTour")}
-            </Button>
-          </Panel>
-
-          <Panel id="shortcuts" title={t("settings.shortcuts")} description={t("settings.shortcutsDetail")}>
-            <ul className="flex flex-col">
-              <ShortcutRow label={t("shortcut.search")} keys={<span className="font-mono text-[13px] text-fg-muted">{modKeyLabel()}K</span>} />
-              <ShortcutRow label={t("shortcut.note")} keys={<span className="font-mono text-[13px] text-fg-muted">C</span>} />
-              <ShortcutRow label={t("shortcut.task")} keys={<span className="font-mono text-[13px] text-fg-muted">T</span>} />
-              <ShortcutRow label={t("shortcut.close")} keys={<span className="font-mono text-[13px] text-fg-muted">Esc</span>} />
-            </ul>
-          </Panel>
-
           <Panel id="data" title={t("settings.data")} description={t("settings.dataDetail")}>
             <div className="flex flex-col gap-3">
               <ExportRow
@@ -462,42 +410,10 @@ export function SettingsPage() {
               ) : null}
             </div>
           </Panel>
-
-          <Panel id="connections" title={t("settings.connections")} description={t("settings.connectionsDetail")}>
-            <div className="flex flex-col">
-              <ConnectionRow
-                title={t("settings.ai")}
-                detail={integrations.data?.ai.provider ? integrations.data.ai.provider : t("settings.aiDetail")}
-                configured={integrations.data?.ai.configured ?? false}
-              />
-              <ConnectionRow
-                title={t("settings.google")}
-                detail={t("settings.googleDetail")}
-                configured={integrations.data?.google_calendar.configured ?? false}
-              />
-              <ConnectionRow
-                title={t("settings.microsoft")}
-                detail={t("settings.microsoftDetail")}
-                configured={integrations.data?.microsoft_calendar.configured ?? false}
-              />
-            </div>
-          </Panel>
         </div>
       </div>
     </div>
   );
-}
-
-function taskFieldLabel(field: TaskField): MessageKey {
-  const labels: Record<TaskField, MessageKey> = {
-    due: "settings.showDue",
-    starts: "settings.showStarts",
-    priority: "settings.showPriority",
-    assignee: "settings.showAssignee",
-    project: "settings.showProject",
-    subtasks: "settings.showSubtasks",
-  };
-  return labels[field];
 }
 
 function Panel({ id, title, description, children }: { id: string; title: string; description: string; children: ReactNode }) {
@@ -532,30 +448,6 @@ function ExportRow({ title, detail, action, onClick }: { title: string; detail: 
         {action}
       </Button>
     </div>
-  );
-}
-
-function ConnectionRow({ title, detail, configured }: { title: string; detail: string; configured: boolean }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-border-subtle py-3 last:border-b-0 last:pb-0 first:pt-0">
-      <div>
-        <p className="font-medium">{title}</p>
-        <p className="mt-0.5 text-[13px] text-fg-muted">{detail}</p>
-      </div>
-      <span className={configured ? "shrink-0 text-[12px] text-status-done" : "shrink-0 text-[12px] text-fg-muted"}>
-        {configured ? t("settings.configured") : t("settings.notConnected")}
-      </span>
-    </div>
-  );
-}
-
-function ShortcutRow({ label, keys }: { label: string; keys: ReactNode }) {
-  return (
-    <li className="flex items-center justify-between gap-4 border-b border-border-subtle py-2.5 last:border-b-0 last:pb-0 first:pt-0">
-      <span className="text-[13px]">{label}</span>
-      {keys}
-    </li>
   );
 }
 

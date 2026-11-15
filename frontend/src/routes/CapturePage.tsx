@@ -107,7 +107,7 @@ export function CapturePage() {
     };
   }, [prepared, me.data, attempt]);
 
-  if (prepared.kind === "empty") return <Navigate to="/inbox" replace />;
+  if (prepared.kind === "empty") return <Navigate to="/" replace />;
 
   const body = prepared.kind === "pending" ? prepared.pending.payload.body_md ?? "" : "";
   const title = prepared.kind === "pending" ? prepared.pending.payload.title ?? "Shared note" : "Capture";
