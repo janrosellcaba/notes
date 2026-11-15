@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
+import { TextField } from "../components/ui/TextField";
 import {
   changePassword,
   createContext,
@@ -209,33 +210,27 @@ export function SettingsPage() {
                   }}
                 >
                   <h2 className="text-[16px]">{t("settings.changePassword")}</h2>
-                  <Field label={t("settings.current")}>
-                    <input
-                      type="password"
-                      autoComplete="current-password"
-                      value={currentPassword}
-                      className={fieldClass}
-                      onChange={(event) => setCurrentPassword(event.target.value)}
-                    />
-                  </Field>
-                  <Field label={t("settings.newPassword")}>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={newPassword}
-                      className={fieldClass}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                    />
-                  </Field>
-                  <Field label={t("settings.confirm")}>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={confirmPassword}
-                      className={fieldClass}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                    />
-                  </Field>
+                  <TextField
+                    label={t("settings.current")}
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                  />
+                  <TextField
+                    label={t("settings.newPassword")}
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                  />
+                  <TextField
+                    label={t("settings.confirm")}
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                  />
                   <p className={passwordError ? "text-[13px] text-priority-urgent" : "text-[13px] text-fg-muted"}>
                     {passwordError || t("settings.passwordHint")}
                   </p>
@@ -447,15 +442,6 @@ function Panel({ id, title, description, children }: { id: string; title: string
       </header>
       <div className="px-5 py-4">{children}</div>
     </section>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[13px] text-fg-secondary">{label}</span>
-      {children}
-    </label>
   );
 }
 

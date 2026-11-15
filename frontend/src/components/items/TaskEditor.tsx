@@ -7,16 +7,17 @@ import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts, useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
-import type { Item, ItemPriority } from "../../types/api";
+import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
+import { StatusSelect } from "../ui/StatusSelect";
 
 const PRIORITIES: ItemPriority[] = ["none", "low", "medium", "high", "urgent"];
 
 const fieldClass =
   "mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg";
 
-export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
+export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { projectId?: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const { t } = useI18n();
@@ -27,7 +28,7 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
   const [starts, setStarts] = useState("");
   const [assignee, setAssignee] = useState("");
   const [priority, setPriority] = useState<ItemPriority>("none");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(initialProjectId ?? "");
   const [contextId, setContextId] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -116,6 +117,7 @@ export function TaskEditor({
   const [starts, setStarts] = useState(item.starts_on ?? "");
   const [assignee, setAssignee] = useState(item.assignee ?? "");
   const [priority, setPriority] = useState<ItemPriority>(item.priority ?? "none");
+  const [status, setStatus] = useState<ItemStatus>(item.status ?? "todo");
   const [projectId, setProjectId] = useState(item.project?.id ?? "");
   const [contextId, setContextId] = useState(item.project ? "" : (item.context?.id ?? ""));
   const [subtask, setSubtask] = useState("");
@@ -166,12 +168,21 @@ export function TaskEditor({
   return (
     <Modal title={t("editor.task")} onClose={onClose}>
       <form className="flex flex-col gap-3 p-4" onSubmit={(event) => event.preventDefault()}>
-        <input
-          value={title}
-          aria-label={t("editor.title")}
-          className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
-          onChange={(event) => setTitle(event.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <StatusSelect
+            status={status}
+            onChange={(next) => {
+              setStatus(next);
+              void save({ status: next });
+            }}
+          />
+          <input
+            value={title}
+            aria-label={t("editor.title")}
+            className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </div>
         <TaskDetails
           due={due}
           starts={starts}
@@ -212,12 +223,14 @@ export function TaskEditor({
             <ul className="mt-1.5">
               {(children.data?.items ?? []).map((child) => (
                 <li key={child.id} className="flex min-h-8 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={child.status === "done"}
-                    aria-label={`${t("board.done")} ${child.title}`}
-                    onChange={() => void patchItem(child.id, { status: child.status === "done" ? "todo" : "done" }).then(() => queryClient.invalidateQueries({ queryKey: ["items"] }))}
+                  <StatusSelect
+                    status={child.status ?? "todo"}
+                    showLabel={false}
+                    onChange={(next) =>
+                      void patchItem(child.id, { status: next }).then(() =>
+                        queryClient.invalidateQueries({ queryKey: ["items"] }),
+                      )
+                    }
                   />
                   <button type="button" className="min-w-0 flex-1 truncate text-left text-[13px]" onClick={() => onOpen?.(child)}>
                     {child.title}

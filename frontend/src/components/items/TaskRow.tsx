@@ -4,24 +4,24 @@ import { Link } from "react-router";
 import { errorMessage, patchItem } from "../../lib/api";
 import { invalidateItemViews, mapItem, restoreLists, snapshotLists } from "../../lib/cache";
 import { useUi } from "../../stores/ui";
-import type { Item } from "../../types/api";
+import type { Item, ItemStatus } from "../../types/api";
 import { ContextBadge } from "../ui/ContextBadge";
 import { PriorityMark } from "../ui/PriorityMark";
+import { StatusSelect } from "../ui/StatusSelect";
 
 export function TaskRow({ item }: { item: Item }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
-  const toggle = useMutation({
-    mutationFn: () => patchItem(item.id, { status: item.status === "done" ? "todo" : "done" }),
-    onMutate: async () => {
+  const setStatus = useMutation({
+    mutationFn: (status: ItemStatus) => patchItem(item.id, { status }),
+    onMutate: async (status) => {
       await queryClient.cancelQueries({ queryKey: ["home"] });
       await queryClient.cancelQueries({ queryKey: ["items"] });
       const snapshot = snapshotLists(queryClient);
-      const done = item.status !== "done";
       mapItem(queryClient, item.id, (current) => ({
         ...current,
-        status: done ? "done" : "todo",
-        completed_at: done ? new Date().toISOString() : null,
+        status,
+        completed_at: status === "done" ? new Date().toISOString() : null,
       }));
       return { snapshot };
     },
@@ -37,19 +37,15 @@ export function TaskRow({ item }: { item: Item }) {
       invalidateItemViews(queryClient, item.id);
     },
   });
-  const checked = item.status === "done";
+  const done = item.status === "done";
   return (
-    <li className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-1">
-      <label className="inline-flex min-h-11 min-w-11 items-center justify-center">
-        <input
-          type="checkbox"
-          className="h-4 w-4 accent-fg"
-          checked={checked}
-          aria-label={checked ? `Mark ${item.title} not done` : `Mark ${item.title} done`}
-          onChange={() => toggle.mutate()}
-        />
-      </label>
-      <Link to={`/item/${item.id}`} className={`min-w-0 flex-1 truncate ${checked ? "text-fg-muted line-through" : ""}`}>
+    <li className="flex min-h-11 items-center gap-2 border-b border-border-subtle py-1">
+      <StatusSelect
+        status={item.status ?? "todo"}
+        showLabel={false}
+        onChange={(status) => setStatus.mutate(status)}
+      />
+      <Link to={`/item/${item.id}`} className={`min-w-0 flex-1 truncate ${done ? "text-fg-muted line-through" : ""}`}>
         {item.title}
       </Link>
       <PriorityMark priority={item.priority} />

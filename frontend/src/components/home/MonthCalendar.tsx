@@ -21,7 +21,7 @@ function monthDays(year: number, month: number): Date[] {
   return Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
 }
 
-export function MonthCalendar() {
+export function MonthCalendar({ projectId }: { projectId?: string }) {
   const { locale, t } = useI18n();
   const navigate = useNavigate();
   const contextId = useUi((state) => state.contextId);
@@ -30,7 +30,12 @@ export function MonthCalendar() {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const language = locale === "en" ? "en-GB" : locale;
-  const filters = { limit: 200, context_id: contextId === "all" ? undefined : contextId };
+  const filters = {
+    limit: 200,
+    ...(projectId
+      ? { project_id: projectId }
+      : { context_id: contextId === "all" ? undefined : contextId }),
+  };
   const tasks = useQuery({
     queryKey: queryKeys.items({ ...filters, type: "task" }),
     queryFn: () => listItems({ ...filters, type: "task", include_done: false }),
@@ -42,6 +47,7 @@ export function MonthCalendar() {
   const notes = useQuery({
     queryKey: queryKeys.items({ ...filters, type: "note" }),
     queryFn: () => listItems({ ...filters, type: "note" }),
+    enabled: !projectId,
   });
   const byDay = useMemo(() => {
     const map = new Map<string, Array<{ id: string; title: string }>>();
@@ -57,18 +63,19 @@ export function MonthCalendar() {
   }, [tasks.data, meetings.data]);
   const dailyDays = useMemo(() => {
     const set = new Set<string>();
+    if (projectId) return set;
     for (const item of notes.data?.items ?? []) {
       if (item.daily_on) set.add(item.daily_on);
     }
     return set;
-  }, [notes.data]);
+  }, [notes.data, projectId]);
   const days = monthDays(year, month);
   const today = iso(new Date());
   const label = new Date(year, month, 1).toLocaleDateString(language, { month: "long", year: "numeric" });
   const weekday = new Date(2026, 10, 16);
 
   async function openDay(day: string) {
-    if (opening) return;
+    if (projectId || opening) return;
     setOpening(day);
     try {
       const id = await openDaily(day);
@@ -104,16 +111,22 @@ export function MonthCalendar() {
           const hasDaily = dailyDays.has(key);
           return (
             <div key={key} className={`min-h-16 rounded-[8px] px-1 py-1 ${key === today ? "bg-interactive" : ""}`}>
-              <button
-                type="button"
-                className={`flex w-full items-center gap-1 text-left text-[12px] hover:text-fg ${outside ? "text-fg-muted" : "text-fg-secondary"}`}
-                aria-label={t("home.openDaily", { day: key })}
-                disabled={opening === key}
-                onClick={() => void openDay(key)}
-              >
-                <span>{day.getDate()}</span>
-                {hasDaily ? <span className="h-1.5 w-1.5 rounded-full bg-fg" aria-hidden /> : null}
-              </button>
+              {projectId ? (
+                <p className={`flex w-full items-center gap-1 text-left text-[12px] ${outside ? "text-fg-muted" : "text-fg-secondary"}`}>
+                  <span>{day.getDate()}</span>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-1 text-left text-[12px] hover:text-fg ${outside ? "text-fg-muted" : "text-fg-secondary"}`}
+                  aria-label={t("home.openDaily", { day: key })}
+                  disabled={opening === key}
+                  onClick={() => void openDay(key)}
+                >
+                  <span>{day.getDate()}</span>
+                  {hasDaily ? <span className="h-1.5 w-1.5 rounded-full bg-fg" aria-hidden /> : null}
+                </button>
+              )}
               {items.slice(0, 2).map((item) => (
                 <Link key={item.id} to={`/item/${item.id}`} className="mt-0.5 block truncate text-[11px] text-fg hover:underline">
                   {item.title}

@@ -7,13 +7,14 @@ import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
 import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
 import { PriorityMark } from "../components/ui/PriorityMark";
+import { StatusSelect } from "../components/ui/StatusSelect";
 import { groupTasks, todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
-import type { Item, ItemFilters } from "../types/api";
+import type { Item, ItemFilters, ItemStatus } from "../types/api";
 
 export function TasksPage() {
   const [params, setParams] = useSearchParams();
@@ -53,13 +54,19 @@ export function TasksPage() {
     setParams(copy, { replace: true });
   }
 
-  async function toggle(item: Item) {
-    const status = item.status === "done" ? "todo" : "done";
+  async function setStatus(item: Item, status: ItemStatus) {
+    if (item.status === status) return;
     const lists = snapshotLists(queryClient);
-    mapItem(queryClient, item.id, (current) => ({ ...current, status }));
+    mapItem(queryClient, item.id, (current) => ({
+      ...current,
+      status,
+      completed_at: status === "done" ? new Date().toISOString() : null,
+    }));
     try {
       const saved = await patchItem(item.id, { status });
       mapItem(queryClient, item.id, () => saved);
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+      await queryClient.invalidateQueries({ queryKey: ["home"] });
     } catch (error) {
       restoreLists(queryClient, lists);
       pushToast(error instanceof Error ? error.message : "Could not update the task");
@@ -103,11 +110,15 @@ export function TasksPage() {
                       <TaskRow
                         item={item}
                         onOpen={setEditing}
-                        onToggle={(row) => void toggle(row)}
+                        onStatus={(row, status) => void setStatus(row, status)}
                       />
                       {(nested.children.get(item.id) ?? []).map((child) => (
                         <div key={child.id} className="pl-7">
-                          <TaskRow item={child} onOpen={setEditing} onToggle={(row) => void toggle(row)} />
+                          <TaskRow
+                            item={child}
+                            onOpen={setEditing}
+                            onStatus={(row, status) => void setStatus(row, status)}
+                          />
                         </div>
                       ))}
                     </li>
@@ -143,11 +154,11 @@ function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]
 function TaskRow({
   item,
   onOpen,
-  onToggle,
+  onStatus,
 }: {
   item: Item;
   onOpen: (item: Item) => void;
-  onToggle: (item: Item) => void;
+  onStatus: (item: Item, status: ItemStatus) => void;
 }) {
   const { t } = useI18n();
   const badge = item.project
@@ -155,18 +166,14 @@ function TaskRow({
     : item.context
       ? { color: item.context.color, icon: item.context.icon, name: item.context.name }
       : null;
+  const done = item.status === "done";
   return (
-    <div className="flex min-h-11 items-center gap-3 rounded-[8px] px-1 hover:bg-interactive">
-      <input
-        type="checkbox"
-        className="h-4 w-4"
-        checked={item.status === "done"}
-        aria-label={`${t("board.done")} ${item.title || t("common.untitled")}`}
-        onClick={(event) => event.stopPropagation()}
-        onChange={() => onToggle(item)}
-      />
+    <div className="flex min-h-11 items-center gap-2 rounded-[8px] px-1 hover:bg-interactive">
+      <StatusSelect status={item.status ?? "todo"} onChange={(status) => onStatus(item, status)} />
       <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpen(item)}>
-        <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
+        <span className={`min-w-0 flex-1 truncate ${done ? "text-fg-muted line-through" : ""}`}>
+          {item.title || t("common.untitled")}
+        </span>
         {item.subtask_total > 0 ? (
           <span className="font-mono text-[12px] text-fg-muted">
             {item.subtask_done}/{item.subtask_total}
