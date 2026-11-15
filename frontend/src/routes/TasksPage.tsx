@@ -17,12 +17,13 @@ import type { Item, ItemFilters } from "../types/api";
 
 export function TasksPage() {
   const [params, setParams] = useSearchParams();
-  const setTasksView = useUi((state) => state.setTasksView);
+  const tasksView = useUi((state) => state.tasksView);
   const contextId = useUi((state) => state.contextId);
   const pushToast = useUi((state) => state.pushToast);
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const view = params.get("view") === "board" ? "board" : "list";
+  const queryView = params.get("view");
+  const view = queryView === "board" || queryView === "list" ? queryView : tasksView;
   const today = todayISO();
   const [editing, setEditing] = useState<Item | null>(null);
   const [creating, setCreating] = useState(false);
@@ -48,10 +49,8 @@ export function TasksPage() {
 
   function setView(next: "list" | "board") {
     const copy = new URLSearchParams(params);
-    if (next === "list") copy.delete("view");
-    else copy.set("view", next);
+    copy.set("view", next);
     setParams(copy, { replace: true });
-    setTasksView(next);
   }
 
   async function toggle(item: Item) {

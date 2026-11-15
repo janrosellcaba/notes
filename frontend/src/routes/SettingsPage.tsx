@@ -40,6 +40,8 @@ export function SettingsPage() {
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
   const setContextId = useUi((state) => state.setContextId);
+  const tasksView = useUi((state) => state.tasksView);
+  const setTasksView = useUi((state) => state.setTasksView);
   const boardOrder = useUi((state) => state.boardOrder);
   const moveBoardColumn = useUi((state) => state.moveBoardColumn);
   const { t, locale, setLocale } = useI18n();
@@ -294,6 +296,26 @@ export function SettingsPage() {
                     onClick={() => setLocale(value)}
                   >
                     {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] text-fg-secondary">{t("settings.tasksView")}</p>
+                <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.tasksViewDetail")}</p>
+              </div>
+              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.tasksView")}>
+                {(["list", "board"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={tasksView === option}
+                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${tasksView === option ? "bg-interactive text-fg" : "text-fg-secondary"}`}
+                    onClick={() => setTasksView(option)}
+                  >
+                    {t(option === "list" ? "tasks.list" : "tasks.board")}
                   </button>
                 ))}
               </div>
