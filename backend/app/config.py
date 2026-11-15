@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     admin_username: str = ""
     admin_password_hash: str = ""
     admin_password: str = ""
+    signup_code: str = ""
     session_secret: str = ""
     cookie_secure: bool = True
     allowed_origins: str = "https://notes.janrosell.com"

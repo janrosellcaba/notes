@@ -16,6 +16,7 @@ def build_settings(data_dir: Path, password_hash: str, **overrides: object) -> S
         "admin_username": ADMIN_USERNAME,
         "admin_password_hash": password_hash,
         "admin_password": "",
+        "signup_code": "01234",
         "session_secret": "s" * 32,
         "cookie_secure": False,
         "allowed_origins": ALLOWED_ORIGIN,

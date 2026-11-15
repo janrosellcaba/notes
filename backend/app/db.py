@@ -67,6 +67,7 @@ class Database:
         try:
             await self._apply_pragmas()
             await self._migrate()
+            await self._ensure_users()
             await self._rebuild_fts()
             await self._apply_timezone()
         except Exception:
@@ -188,6 +189,24 @@ class Database:
         except Exception:
             await conn.rollback()
             raise
+
+    async def _ensure_users(self) -> None:
+        """Accounts live beside the v1 schema so an existing database can gain them."""
+        conn = self._connection()
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+              id TEXT PRIMARY KEY,
+              username TEXT NOT NULL UNIQUE,
+              password_hash TEXT NOT NULL,
+              session_version INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL
+            )
+            """
+        )
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users(lower(username))"
+        )
 
     async def _apply_timezone(self) -> None:
         if not self.user_timezone or self.user_timezone == DEFAULT_TIMEZONE:

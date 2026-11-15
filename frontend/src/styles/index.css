@@ -29,10 +29,10 @@
   html {
     color-scheme: dark;
     background: var(--color-canvas);
-    --logo-bg: #111113;
+    --logo-bg: #000000;
     --logo-border: #27272a;
-    --logo-fg: #fafafa;
-    --logo-accent: #fafafa;
+    --logo-fg: #ffffff;
+    --logo-accent: #ffffff;
   }
 
   body {

@@ -17,6 +17,7 @@ from app.db import Database
 from app.errors import register_exception_handlers
 from app.routers import auth, backup, contexts, health, home, integrations, items, projects, search
 from app.routers import settings as settings_router
+from app.routers.auth import ensure_admin_user
 from app.security import LoginRateLimiter, apply_security_headers, origin_is_allowed, resolve_password_hash
 
 STATIC_DIR = Path("/app/static")
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
     database = Database(settings.database_path, settings.user_timezone)
     await database.connect()
     app.state.db = database
+    await ensure_admin_user(database, settings.admin_username.strip(), app.state.password_hash)
     try:
         yield
     finally:

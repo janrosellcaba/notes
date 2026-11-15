@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, getMe, login } from "../lib/api";
+import { ApiError, getMe, login, register } from "../lib/api";
 import { safeNext } from "../lib/dates";
 import { queryKeys } from "../lib/queryKeys";
 import { BrandMark } from "../components/ui/BrandMark";
@@ -17,6 +17,8 @@ export function LoginPage() {
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe, retry: false });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -27,12 +29,15 @@ export function LoginPage() {
     setError("");
     setPending(true);
     try {
-      const user = await login(username, password);
+      const user = creating ? await register(username, password, code) : await login(username, password);
       queryClient.setQueryData(queryKeys.me, user);
       void navigate(next, { replace: true });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) setError("Invalid username or password");
+      else if (caught instanceof ApiError && caught.status === 403) setError("Invalid code");
+      else if (caught instanceof ApiError && caught.status === 409) setError("That username is taken");
       else if (caught instanceof ApiError && caught.status === 429) setError("Too many attempts. Wait a few minutes.");
+      else if (caught instanceof ApiError && caught.status === 422) setError(caught.message);
       else setError("Could not reach the server");
       setPending(false);
     }
@@ -62,15 +67,37 @@ export function LoginPage() {
             label="Password"
             name="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete={creating ? "new-password" : "current-password"}
+            minLength={creating ? 8 : undefined}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
           />
+          {creating ? (
+            <TextField
+              label="Code"
+              name="code"
+              autoComplete="off"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              required
+            />
+          ) : null}
         </div>
         {error ? <p className="mt-4 text-priority-urgent">{error}</p> : null}
         <Button type="submit" className="mt-6 w-full" disabled={pending} aria-busy={pending}>
-          Continue
+          {creating ? "Create account" : "Continue"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-2 w-full"
+          onClick={() => {
+            setCreating((value) => !value);
+            setError("");
+          }}
+        >
+          {creating ? "Back to sign in" : "Create account"}
         </Button>
       </form>
     </main>

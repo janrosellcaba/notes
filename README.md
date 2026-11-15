@@ -1,6 +1,6 @@
 # Notes
 
-Personal notes, tasks, and meetings. One user, one container, SQLite on a volume.
+Personal notes, tasks, and meetings. One container, SQLite on a volume. Accounts share the same notes. The first account comes from `ADMIN_USERNAME`. Further accounts need `SIGNUP_CODE`.
 
 ## Environment
 
@@ -15,6 +15,7 @@ cp .env.example .env
 | `ADMIN_USERNAME` | Sign-in name. Required. |
 | `ADMIN_PASSWORD_HASH` | argon2id hash. Leave `ADMIN_PASSWORD` empty when this is set. |
 | `ADMIN_PASSWORD` | Plain password, only until you replace it with a hash. |
+| `SIGNUP_CODE` | Code required by Create account. Leave it empty to keep registration closed. |
 | `SESSION_SECRET` | At least 32 bytes. Signs the session cookie. |
 | `COOKIE_SECURE` | `true` in production so the cookie is `Secure`. Use `false` only for HTTP on localhost. |
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to send unsafe requests. Production: `https://notes.janrosell.com`. |

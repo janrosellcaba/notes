@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { downloadFile, getIntegrations, getSettings, patchContext, patchSettings } from "../lib/api";
+import { changePassword, downloadFile, getIntegrations, getSettings, patchContext, patchSettings } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -13,6 +13,10 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const [timezone, setTimezone] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordPending, setPasswordPending] = useState(false);
   const zone = timezone ?? settings.data?.timezone ?? "";
 
   async function saveContext(id: string, name: string, color: string, originalName: string, originalColor: string) {
@@ -38,6 +42,29 @@ export function SettingsPage() {
       setTimezone(null);
     } catch (error) {
       pushToast(error instanceof Error ? error.message : "Could not update the timezone");
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 8) {
+      pushToast("Use at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      pushToast("The new passwords do not match");
+      return;
+    }
+    setPasswordPending(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      pushToast("Password changed");
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not change the password");
+    } finally {
+      setPasswordPending(false);
     }
   }
 
@@ -70,6 +97,47 @@ export function SettingsPage() {
           onBlur={(event) => void saveTimezone(event.target.value)}
         />
       </label>
+      <section className="flex max-w-md flex-col gap-3">
+        <h2 className="text-[13px] text-fg-muted">Password</h2>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-fg-secondary">Current password</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            className="min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+            onChange={(event) => setCurrentPassword(event.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-fg-secondary">New password</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            className="min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+            onChange={(event) => setNewPassword(event.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-fg-secondary">Confirm new password</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            className="min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+            onChange={(event) => setConfirmPassword(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="min-h-11 self-start rounded-[8px] bg-fg px-3 text-canvas disabled:opacity-50"
+          disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
+          onClick={() => void savePassword()}
+        >
+          Change password
+        </button>
+      </section>
       <section className="flex flex-wrap gap-2">
         <button type="button" className="min-h-11 rounded-[8px] bg-fg px-3 text-canvas" onClick={() => void download("/api/backup/sqlite", "notes.db")}>
           Download database

@@ -7,7 +7,7 @@ from fastapi import Request
 from app.config import Settings
 from app.db import Database
 from app.errors import AppError
-from app.security import COOKIE_NAME, decode_access_token, secrets_match
+from app.security import COOKIE_NAME, decode_access_token
 
 
 def get_db(request: Request) -> Database:
@@ -33,10 +33,11 @@ async def get_current_user(request: Request) -> str:
         raise
     except Exception as exc:
         raise AppError(401, "Unauthenticated", "unauthenticated") from exc
-    if not secrets_match(subject, settings.admin_username):
-        raise AppError(401, "Unauthenticated", "unauthenticated")
     database: Database = request.app.state.db
-    row = await database.fetchone("SELECT value FROM app_meta WHERE key = 'session_version'")
-    if row is None or session_version != int(row["value"]):
+    row = await database.fetchone(
+        "SELECT username, session_version FROM users WHERE username = ?",
+        (subject,),
+    )
+    if row is None or session_version != int(row["session_version"]):
         raise AppError(401, "Unauthenticated", "unauthenticated")
-    return subject
+    return str(row["username"])

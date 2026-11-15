@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import jwt
 from httpx import AsyncClient, Response
 
-from tests.helpers import ADMIN_PASSWORD, ADMIN_USERNAME, ALLOWED_ORIGIN
+from tests.conftest import running_app
+from tests.helpers import ADMIN_PASSWORD, ADMIN_USERNAME, ALLOWED_ORIGIN, build_settings
 
 UNAUTHENTICATED = {"detail": "Unauthenticated", "code": "unauthenticated"}
 INVALID_LOGIN = {"detail": "Invalid username or password", "code": "invalid_credentials"}
@@ -224,6 +226,72 @@ async def test_logout_clears_the_cookie_with_or_without_a_session(
     assert signed_out.status_code == 204
     assert cookie_attributes(signed_out)["max-age"] == "0"
     assert (await http.get("/api/auth/me")).status_code == 401
+
+
+async def test_register_requires_the_signup_code_and_signs_in(client: tuple[object, AsyncClient]) -> None:
+    _app, http = client
+    wrong = await http.post(
+        "/api/auth/register",
+        json={"username": "ada", "password": "long-enough", "code": "nope"},
+    )
+    assert wrong.status_code == 403
+    assert wrong.json()["code"] == "invalid_code"
+
+    created = await http.post(
+        "/api/auth/register",
+        json={"username": "ada", "password": "long-enough", "code": "01234"},
+    )
+    assert created.status_code == 201
+    assert created.json() == {"username": "ada"}
+    assert "httponly" in created.headers["set-cookie"].lower()
+    assert (await http.get("/api/auth/me")).json() == {"username": "ada"}
+
+    taken = await http.post(
+        "/api/auth/register",
+        json={"username": "Ada", "password": "long-enough", "code": "01234"},
+    )
+    assert taken.status_code == 409
+    assert taken.json()["code"] == "username_taken"
+
+
+async def test_register_is_closed_when_the_code_is_unset(
+    tmp_path: Path, admin_password_hash: str
+) -> None:
+    settings = build_settings(tmp_path, admin_password_hash, signup_code="")
+    async with running_app(settings) as (_app, http):
+        response = await http.post(
+            "/api/auth/register",
+            json={"username": "ada", "password": "long-enough", "code": "01234"},
+        )
+    assert response.status_code == 403
+    assert response.json()["code"] == "invalid_code"
+
+
+async def test_change_password_replaces_the_session(client: tuple[object, AsyncClient]) -> None:
+    _app, http = client
+    assert (await login(http)).status_code == 200
+    old_cookie = http.cookies.get("notes_session")
+    wrong = await http.post(
+        "/api/auth/password",
+        json={"current_password": "not-the-password", "new_password": "a-new-secret"},
+    )
+    assert wrong.status_code == 400
+    assert wrong.json()["code"] == "invalid_credentials"
+
+    changed = await http.post(
+        "/api/auth/password",
+        json={"current_password": ADMIN_PASSWORD, "new_password": "a-new-secret"},
+    )
+    assert changed.status_code == 200
+    assert changed.json() == {"username": ADMIN_USERNAME}
+    assert http.cookies.get("notes_session") != old_cookie
+    assert (await http.get("/api/auth/me")).status_code == 200
+
+    http.cookies.set("notes_session", old_cookie)
+    assert (await http.get("/api/auth/me")).status_code == 401
+    http.cookies.clear()
+    assert (await login(http)).status_code == 401
+    assert (await login(http, password="a-new-secret")).status_code == 200
 
 
 async def test_login_validation_error_shape(client: tuple[object, AsyncClient]) -> None:

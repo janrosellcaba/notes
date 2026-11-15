@@ -104,7 +104,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const payload = parseJson(await response.text());
   if (!response.ok) {
     const error = errorFrom(response.status, payload, response.statusText || "Request failed");
-    if (response.status === 401 && !path.startsWith("/api/auth/login")) redirectToLogin();
+    const anonymousAuth = path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register");
+    if (response.status === 401 && !anonymousAuth) redirectToLogin();
     throw error;
   }
   return payload as T;
@@ -112,6 +113,17 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
 export function login(username: string, password: string): Promise<AuthUser> {
   return api<AuthUser>("/api/auth/login", { method: "POST", body: { username, password } });
+}
+
+export function register(username: string, password: string, code: string): Promise<AuthUser> {
+  return api<AuthUser>("/api/auth/register", { method: "POST", body: { username, password, code } });
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<AuthUser> {
+  return api<AuthUser>("/api/auth/password", {
+    method: "POST",
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
 }
 
 export function logout(): Promise<void> {
