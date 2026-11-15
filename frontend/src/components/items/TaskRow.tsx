@@ -53,7 +53,9 @@ export function TaskRow({ item }: { item: Item }) {
         {item.title}
       </Link>
       <PriorityMark priority={item.priority} />
-      {item.project ? <ContextBadge name={item.project.name} color={item.project.color} /> : null}
+      {item.project ? (
+        <ContextBadge name={item.project.name} color={item.project.context.color} icon={item.project.context.icon} />
+      ) : null}
     </li>
   );
 }

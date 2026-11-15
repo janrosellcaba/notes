@@ -113,7 +113,7 @@ export function ProjectDetailPage() {
       <header className="flex items-center gap-3">
         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: current.color }} />
         <h1 className="min-w-0 flex-1 truncate text-[20px]">{current.name}</h1>
-        <ContextBadge color={current.context.color} name={current.context.name} />
+        <ContextBadge color={current.context.color} icon={current.context.icon} name={current.context.name} />
         <Popover
           open={menu}
           onClose={() => {

@@ -12,6 +12,7 @@ class ContextRef(BaseModel):
     slug: str
     name: str
     color: str
+    icon: str | None = None
 
 
 class Project(BaseModel):

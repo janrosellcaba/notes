@@ -103,7 +103,11 @@ export function TasksPage() {
                         <span className="min-w-0 flex-1 truncate">{item.title || "Untitled"}</span>
                         <span className="font-mono text-[13px] text-fg-muted">{item.due_on ?? ""}</span>
                         <PriorityMark priority={item.priority} />
-                        <ContextBadge color={item.project?.color ?? "#71717A"} name={item.project?.name ?? "Inbox"} />
+                        <ContextBadge
+                          color={item.project?.context.color ?? "#71717A"}
+                          icon={item.project?.context.icon ?? "layers"}
+                          name={item.project?.name ?? "Inbox"}
+                        />
                       </button>
                     </li>
                   ))}

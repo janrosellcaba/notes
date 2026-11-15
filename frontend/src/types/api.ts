@@ -7,6 +7,7 @@ export type Context = {
   slug: string;
   name: string;
   color: string;
+  icon: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ export type ContextRef = {
   slug: string;
   name: string;
   color: string;
+  icon: string | null;
 };
 
 export type ProjectRef = {

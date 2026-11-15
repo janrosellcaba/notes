@@ -250,6 +250,17 @@ class Database:
             WHERE daily_on IS NOT NULL AND deleted_at IS NULL
             """
         )
+        cursor = await conn.execute("PRAGMA table_info(contexts)")
+        context_rows = await cursor.fetchall()
+        await cursor.close()
+        if "icon" not in {str(row[1]) for row in context_rows}:
+            await conn.execute("ALTER TABLE contexts ADD COLUMN icon TEXT")
+        await conn.execute(
+            "UPDATE contexts SET icon = 'briefcase' WHERE icon IS NULL AND slug LIKE 'job%'"
+        )
+        await conn.execute(
+            "UPDATE contexts SET icon = 'house' WHERE icon IS NULL AND slug = 'personal'"
+        )
 
     async def _apply_timezone(self) -> None:
         if not self.user_timezone or self.user_timezone == DEFAULT_TIMEZONE:

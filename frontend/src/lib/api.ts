@@ -278,8 +278,23 @@ export function deleteProject(id: string): Promise<void> {
   return api<void>(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export function patchContext(id: string, body: { name?: string; color?: string }): Promise<Context> {
+export function patchContext(
+  id: string,
+  body: { name?: string; color?: string; icon?: string },
+): Promise<Context> {
   return api<Context>(`/api/contexts/${encodeURIComponent(id)}`, { method: "PATCH", body });
+}
+
+export function createContext(body: { name: string; color?: string; icon?: string }): Promise<Context> {
+  return api<Context>("/api/contexts", { method: "POST", body });
+}
+
+export function deleteContext(id: string): Promise<void> {
+  return api<void>(`/api/contexts/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function moveContext(id: string, direction: "up" | "down"): Promise<Context> {
+  return api<Context>(`/api/contexts/${encodeURIComponent(id)}/move?direction=${direction}`, { method: "POST" });
 }
 
 export function getSettings(): Promise<SettingsView> {

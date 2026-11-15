@@ -2,14 +2,14 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
 import { createItem, dailyNote } from "../lib/api";
-import { meetingTitle, todayISO } from "../lib/dates";
+import { meetingTitle, todayISO, todayLabel } from "../lib/dates";
 import { useUi } from "../stores/ui";
 import { useHomeFeed } from "../lib/queries";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PinnedCard } from "../components/items/PinnedCard";
 import { TaskRow } from "../components/items/TaskRow";
-import { ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown, FileText, ListTodo, Mic, PenLine } from "lucide-react";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -55,6 +55,10 @@ export function HomePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+      <header>
+        <h1 className="text-[20px]">Home</h1>
+        <p className="mt-1 text-[13px] text-fg-muted">{todayLabel()}</p>
+      </header>
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] text-fg-muted">Capture</h2>
@@ -62,41 +66,46 @@ export function HomePage() {
             + New project
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           <button
             type="button"
-            className="flex min-h-[88px] flex-col items-start justify-between rounded-[10px] bg-fg px-4 py-3 text-left text-canvas md:col-span-2"
+            className="col-span-2 flex min-h-11 items-center gap-2 rounded-[10px] bg-fg px-3 text-left text-canvas md:col-span-1"
             onClick={() => openCapture({ type: "note", projectId: null })}
           >
-            + Quick Note
+            <PenLine size={16} />
+            Quick note
           </button>
           <button
             type="button"
-            className="flex min-h-[88px] flex-col items-start justify-between rounded-[10px] bg-fg px-4 py-3 text-left text-canvas md:col-span-2"
+            className="flex min-h-11 items-center gap-2 rounded-[10px] border border-border bg-elevated px-3 text-left hover:bg-interactive"
             onClick={() => openCapture({ type: "task" })}
           >
-            + Quick Task
+            <ListTodo size={16} />
+            Quick task
           </button>
           <button
             type="button"
-            className="min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-2"
+            className="flex min-h-11 items-center gap-2 rounded-[10px] border border-border bg-elevated px-3 text-left hover:bg-interactive"
             onClick={() => void openDaily()}
           >
+            <Calendar size={16} />
             Today’s note
           </button>
           <button
             type="button"
-            className="min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-2"
+            className="flex min-h-11 items-center gap-2 rounded-[10px] border border-border bg-elevated px-3 text-left hover:bg-interactive"
             onClick={() => void openMeeting()}
           >
-            + Meeting
+            <FileText size={16} />
+            Meeting
           </button>
           <button
             type="button"
-            className="col-span-2 min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-4"
+            className="col-span-2 flex min-h-11 items-center gap-2 rounded-[10px] border border-border bg-elevated px-3 text-left hover:bg-interactive md:col-span-1"
             onClick={() => openCapture({ type: "transcript", projectId: null })}
           >
-            + Paste transcript
+            <Mic size={16} />
+            Paste transcript
           </button>
         </div>
       </section>

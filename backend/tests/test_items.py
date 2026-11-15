@@ -25,6 +25,7 @@ async def test_inbox_project_assignment_respects_null_and_omitted_fields(
 
     assigned = await http.patch(f"/api/items/{note['id']}", json={"project_id": project_id})
     assert assigned.status_code == 200
+    assert assigned.json()["project"]["context"]["icon"] == "briefcase"
     inbox = await http.get("/api/items", params={"project_id": "none"})
     assert note["id"] not in {item["id"] for item in inbox.json()["items"]}
 

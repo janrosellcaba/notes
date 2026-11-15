@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 
+import { ContextMark } from "../components/shell/ContextMark";
 import { useContexts, useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
 
@@ -19,7 +20,10 @@ export function ProjectsPage() {
         const rows = (projects.data?.projects ?? []).filter((project) => project.context.id === context.id);
         return (
           <section key={context.id}>
-            <h2 className="mb-2 text-[13px] text-fg-muted">{context.name}</h2>
+            <h2 className="mb-2 flex items-center gap-2 text-[13px] text-fg-secondary">
+              <ContextMark icon={context.icon} color={context.color} size={18} />
+              {context.name}
+            </h2>
             <ul className="flex flex-col">
               {rows.map((project) => (
                 <li key={project.id}>
@@ -27,7 +31,7 @@ export function ProjectsPage() {
                     to={`/projects/${project.id}`}
                     className="flex min-h-11 items-center gap-3 rounded-[8px] px-2 hover:bg-interactive"
                   >
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: project.color }} />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: project.color }} />
                     <span>{project.name}</span>
                   </Link>
                 </li>

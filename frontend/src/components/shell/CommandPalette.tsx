@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 
 import { searchItems } from "../../lib/api";
 import { cn } from "../../lib/cn";
@@ -8,10 +9,12 @@ import { searchTokens } from "../../lib/dates";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
+import { Kbd } from "../ui/Kbd";
 import { Modal } from "../ui/Modal";
+import { ContextMark } from "./ContextMark";
 
 type Row =
-  | { kind: "action"; id: string; label: string; run: () => void }
+  | { kind: "action"; id: string; label: string; icon: string | null; color: string | null; run: () => void }
   | { kind: "hit"; id: string; type: string; title: string; snippet: string; project: string | null };
 
 export function CommandPalette() {
@@ -47,18 +50,22 @@ export function CommandPalette() {
   const rows = useMemo<Row[]>(() => {
     const needle = query.trim().toLowerCase();
     const actions: Array<Extract<Row, { kind: "action" }>> = [
-      { kind: "action", id: "note", label: "New note", run: () => openCapture({ type: "note", projectId: null }) },
-      { kind: "action", id: "task", label: "New task", run: () => openCapture({ type: "task" }) },
+      { kind: "action", id: "note", label: "New note", icon: null, color: null, run: () => openCapture({ type: "note", projectId: null }) },
+      { kind: "action", id: "task", label: "New task", icon: null, color: null, run: () => openCapture({ type: "task" }) },
       {
         kind: "action",
         id: "transcript",
         label: "Paste transcript",
+        icon: null,
+        color: null,
         run: () => openCapture({ type: "transcript", projectId: null }),
       },
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,
         id: context.id,
         label: `Switch to ${context.name}`,
+        icon: context.icon,
+        color: context.color,
         run: () => setContextId(context.id),
       })),
     ];
@@ -92,55 +99,70 @@ export function CommandPalette() {
 
   const clamped = rows.length === 0 ? 0 : Math.min(active, rows.length - 1);
 
+  const firstHit = rows.findIndex((row) => row.kind === "hit");
+
   return (
     <Modal title="Search" onClose={close}>
-      <input
-        autoFocus
-        value={query}
-        aria-label="Search"
-        placeholder="Search"
-        role="combobox"
-        aria-expanded="true"
-        aria-controls="command-palette-list"
-        aria-activedescendant={rows[clamped] ? `palette-${rows[clamped].id}` : undefined}
-        className="w-full border-b border-border-subtle bg-transparent px-4 py-3 text-[16px] outline-none"
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setActive((index) => Math.min(index + 1, Math.max(rows.length - 1, 0)));
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setActive((index) => Math.max(index - 1, 0));
-          } else if (event.key === "Enter" && rows[clamped]) {
-            event.preventDefault();
-            choose(rows[clamped]);
-          }
-        }}
-      />
-      <ul id="command-palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto p-1">
+      <div className="p-2">
+        <div className="flex h-9 items-center gap-2 rounded-[8px] border border-border bg-canvas px-2.5 text-fg-muted">
+          <Search size={14} />
+          <input
+            autoFocus
+            value={query}
+            aria-label="Search"
+            placeholder="Search"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="command-palette-list"
+            aria-activedescendant={rows[clamped] ? `palette-${rows[clamped].id}` : undefined}
+            className="min-w-0 flex-1 bg-transparent text-[14px] text-fg outline-none placeholder:text-fg-muted"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActive((index) => Math.min(index + 1, Math.max(rows.length - 1, 0)));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActive((index) => Math.max(index - 1, 0));
+              } else if (event.key === "Enter" && rows[clamped]) {
+                event.preventDefault();
+                choose(rows[clamped]);
+              }
+            }}
+          />
+          <span className="rounded-[5px] border border-border-subtle px-1 py-px">
+            <Kbd>K</Kbd>
+          </span>
+        </div>
+      </div>
+      <ul id="command-palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto px-2 pb-2">
         {rows.map((row, index) => (
           <li key={`${row.kind}-${row.id}`} id={`palette-${row.id}`} role="option" aria-selected={index === clamped}>
+            {index === 0 && row.kind === "action" ? <PaletteHeading>Actions</PaletteHeading> : null}
+            {index === firstHit ? <PaletteHeading>Notes</PaletteHeading> : null}
             <button
               type="button"
               className={cn(
-                "flex min-h-11 w-full flex-col items-start justify-center rounded-[8px] px-3 py-2 text-left",
+                "flex min-h-9 w-full items-center gap-2 rounded-[8px] px-2 text-left text-[13px]",
                 index === clamped && "bg-interactive",
               )}
               onMouseEnter={() => setActive(index)}
               onClick={() => choose(row)}
             >
               {row.kind === "action" ? (
-                <span>{row.label}</span>
-              ) : (
                 <>
-                  <span className="flex w-full items-baseline gap-2">
-                    <span className="font-mono text-[13px] text-fg-muted">{row.type}</span>
-                    <span className="truncate">{row.title}</span>
-                    {row.project ? <span className="ml-auto shrink-0 text-[13px] text-fg-muted">{row.project}</span> : null}
-                  </span>
-                  {row.snippet ? <span className="line-clamp-1 text-[13px] text-fg-secondary">{row.snippet}</span> : null}
+                  {row.color ? <ContextMark icon={row.icon} color={row.color} size={18} /> : null}
+                  <span>{row.label}</span>
                 </>
+              ) : (
+                <span className="flex min-w-0 flex-1 flex-col py-1">
+                  <span className="flex w-full items-baseline gap-2">
+                    <span className="font-mono text-[12px] text-fg-muted">{row.type}</span>
+                    <span className="truncate">{row.title}</span>
+                    {row.project ? <span className="ml-auto shrink-0 text-[12px] text-fg-muted">{row.project}</span> : null}
+                  </span>
+                  {row.snippet ? <span className="line-clamp-1 text-[12px] text-fg-secondary">{row.snippet}</span> : null}
+                </span>
               )}
             </button>
           </li>
@@ -154,4 +176,8 @@ export function CommandPalette() {
       </ul>
     </Modal>
   );
+}
+
+function PaletteHeading({ children }: { children: string }) {
+  return <p className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-fg-muted uppercase">{children}</p>;
 }

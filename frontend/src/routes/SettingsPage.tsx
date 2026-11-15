@@ -1,8 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+
+import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
 import { Button } from "../components/ui/Button";
-import { changePassword, downloadFile, getIntegrations, getMe, getSettings, patchContext, patchSettings } from "../lib/api";
+import {
+  changePassword,
+  createContext,
+  deleteContext,
+  downloadFile,
+  getIntegrations,
+  getMe,
+  getSettings,
+  moveContext,
+  patchContext,
+  patchSettings,
+} from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -25,9 +39,12 @@ export function SettingsPage() {
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe });
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const contextId = useUi((state) => state.contextId);
+  const setContextId = useUi((state) => state.setContextId);
   const theme = useUi((state) => state.theme);
   const setTheme = useUi((state) => state.setTheme);
   const [timezone, setTimezone] = useState<string | null>(null);
+  const [newContext, setNewContext] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -51,16 +68,49 @@ export function SettingsPage() {
     return () => observer.disconnect();
   }, []);
 
+  async function refreshContexts() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.contexts });
+    await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    await queryClient.invalidateQueries({ queryKey: ["items"] });
+    await queryClient.invalidateQueries({ queryKey: ["home"] });
+  }
+
+  async function changeIcon(id: string, icon: string) {
+    try {
+      await patchContext(id, { icon });
+      await refreshContexts();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not update the icon");
+    }
+  }
+
+  async function reorder(id: string, direction: "up" | "down") {
+    try {
+      await moveContext(id, direction);
+      await refreshContexts();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not reorder");
+    }
+  }
+
+  async function remove(id: string, name: string) {
+    if (!window.confirm(`Delete ${name}? Its projects have to be gone first.`)) return;
+    try {
+      await deleteContext(id);
+      if (contextId === id) setContextId("all");
+      await refreshContexts();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not delete the context");
+    }
+  }
+
   async function saveContext(id: string, name: string, color: string, originalName: string, originalColor: string) {
     const nextName = name.trim();
     const nextColor = color.toUpperCase();
     if (!nextName || (nextName === originalName && nextColor === originalColor.toUpperCase())) return;
     try {
       await patchContext(id, { name: nextName, color: nextColor });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.contexts });
-      await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      await queryClient.invalidateQueries({ queryKey: ["home"] });
+      await refreshContexts();
     } catch (error) {
       pushToast(error instanceof Error ? error.message : "Could not update the context");
     }
@@ -240,16 +290,50 @@ export function SettingsPage() {
             </div>
           </Panel>
 
-          <Panel id="contexts" title="Contexts" description="Names and colors used by projects, tasks, and the inbox.">
+          <Panel id="contexts" title="Contexts" description="Add as many as you need. Each one keeps its own projects, tasks, and inbox.">
+            <form
+              className="mb-4 flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = newContext.trim();
+                if (!name) return;
+                void (async () => {
+                  try {
+                    await createContext({ name });
+                    setNewContext("");
+                    await queryClient.invalidateQueries({ queryKey: queryKeys.contexts });
+                  } catch (error) {
+                    pushToast(error instanceof Error ? error.message : "Could not add the context");
+                  }
+                })();
+              }}
+            >
+              <input
+                value={newContext}
+                aria-label="New context name"
+                placeholder="New context"
+                className={`${fieldClass} min-w-0 flex-1`}
+                onChange={(event) => setNewContext(event.target.value)}
+              />
+              <Button type="submit" className="shrink-0">
+                <Plus size={14} />
+                Add
+              </Button>
+            </form>
             <ul className="flex flex-col">
               {rows.map((context, index) => (
-                <li key={context.id} className={index === 0 ? "" : "border-t border-border-subtle pt-3 mt-3"}>
+                <li key={context.id} className={index === 0 ? "" : "mt-3 border-t border-border-subtle pt-3"}>
                   <ContextRow
                     id={context.id}
                     name={context.name}
                     color={context.color}
-                    slug={context.slug}
+                    icon={context.icon}
+                    first={index === 0}
+                    last={index === rows.length - 1}
                     onSave={saveContext}
+                    onIcon={(icon) => void changeIcon(context.id, icon)}
+                    onMove={(direction) => void reorder(context.id, direction)}
+                    onDelete={() => void remove(context.id, context.name)}
                   />
                 </li>
               ))}
@@ -354,27 +438,65 @@ function ContextRow({
   id,
   name,
   color,
-  slug,
+  icon,
+  first,
+  last,
   onSave,
+  onIcon,
+  onMove,
+  onDelete,
 }: {
   id: string;
   name: string;
   color: string;
-  slug: string;
+  icon: string | null;
+  first: boolean;
+  last: boolean;
   onSave: (id: string, name: string, color: string, originalName: string, originalColor: string) => Promise<void>;
+  onIcon: (icon: string) => void;
+  onMove: (direction: "up" | "down") => void;
+  onDelete: () => void;
 }) {
   const [nextName, setNextName] = useState(name);
   const [nextColor, setNextColor] = useState(color);
+  const [iconsOpen, setIconsOpen] = useState(false);
   return (
-    <div className="flex items-center gap-3">
-      <input
-        type="color"
-        aria-label={`${name} color`}
-        value={nextColor.toLowerCase()}
-        className="h-8 w-8 shrink-0 cursor-pointer appearance-none overflow-hidden rounded-full border border-border bg-transparent p-0 [&::-moz-color-swatch]:border-none [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0"
-        onChange={(event) => setNextColor(event.target.value)}
-        onBlur={(event) => void onSave(id, nextName, event.target.value, name, color)}
-      />
+    <div className="flex items-center gap-2">
+      <div className="relative">
+        <button type="button" aria-label={`${name} icon`} onClick={() => setIconsOpen((value) => !value)}>
+          <ContextMark icon={icon} color={nextColor} size={28} />
+        </button>
+        {iconsOpen ? (
+          <div className="absolute left-0 z-20 mt-1 grid w-56 grid-cols-7 gap-1 rounded-[10px] border border-border bg-elevated p-2 shadow-[var(--overlay-shadow)]">
+            {CONTEXT_ICONS.map((entry) => (
+              <button
+                key={entry.name}
+                type="button"
+                aria-label={entry.name}
+                className="flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-interactive"
+                onClick={() => {
+                  onIcon(entry.name);
+                  setIconsOpen(false);
+                }}
+              >
+                <entry.icon size={15} />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <label className="relative h-8 w-8 shrink-0">
+        <span className="sr-only">{name} color</span>
+        <input
+          type="color"
+          aria-label={`${name} color`}
+          value={nextColor.toLowerCase()}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          onChange={(event) => setNextColor(event.target.value)}
+          onBlur={(event) => void onSave(id, nextName, event.target.value, name, color)}
+        />
+        <span className="block h-8 w-8 rounded-full border border-border" style={{ background: nextColor }} />
+      </label>
       <input
         value={nextName}
         aria-label={`${name} name`}
@@ -382,7 +504,15 @@ function ContextRow({
         onChange={(event) => setNextName(event.target.value)}
         onBlur={(event) => void onSave(id, event.target.value, nextColor, name, color)}
       />
-      <span className="hidden shrink-0 rounded-full bg-canvas px-2 py-1 font-mono text-[12px] text-fg-muted sm:inline">{slug}</span>
+      <button type="button" aria-label={`Move ${name} up`} disabled={first} className="text-fg-muted disabled:opacity-30" onClick={() => onMove("up")}>
+        <ChevronUp size={16} />
+      </button>
+      <button type="button" aria-label={`Move ${name} down`} disabled={last} className="text-fg-muted disabled:opacity-30" onClick={() => onMove("down")}>
+        <ChevronDown size={16} />
+      </button>
+      <button type="button" aria-label={`Delete ${name}`} className="text-fg-muted hover:text-fg" onClick={onDelete}>
+        <Trash2 size={15} />
+      </button>
     </div>
   );
 }

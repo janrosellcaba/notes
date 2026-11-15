@@ -1,6 +1,16 @@
 import type { CSSProperties } from "react";
 
-export function ContextBadge({ name, color }: { name: string; color: string }) {
+import { ContextMark } from "../shell/ContextMark";
+
+export function ContextBadge({
+  name,
+  color,
+  icon,
+}: {
+  name: string;
+  color: string;
+  icon?: string | null;
+}) {
   const style = {
     "--ctx": color,
     color,
@@ -9,10 +19,10 @@ export function ContextBadge({ name, color }: { name: string; color: string }) {
   } as CSSProperties;
   return (
     <span
-      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2 py-0.5 text-[13px]"
+      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-1.5 py-0.5 text-[13px]"
       style={style}
     >
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+      <ContextMark icon={icon ?? null} color={color} size={16} />
       <span className="truncate">{name}</span>
     </span>
   );

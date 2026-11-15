@@ -1,5 +1,9 @@
 import type { Item, ItemPriority } from "../types/api";
 
+export function todayLabel(now = new Date()): string {
+  return now.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+}
+
 export function todayISO(now = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");

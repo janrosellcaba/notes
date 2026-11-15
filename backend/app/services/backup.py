@@ -24,7 +24,7 @@ async def export_json(db: Database) -> tuple[dict[str, Any], str]:
     timezone = await db.fetchone("SELECT value FROM app_meta WHERE key = 'timezone'")
     contexts = await db.fetchall(
         """
-        SELECT id, slug, name, color, sort_order, created_at, updated_at
+        SELECT id, slug, name, color, icon, sort_order, created_at, updated_at
         FROM contexts ORDER BY sort_order
         """
     )

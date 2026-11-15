@@ -42,7 +42,11 @@ export function TaskCard({
       </div>
       {showProject ? (
         <div className="mt-2">
-          <ContextBadge color={item.project?.color ?? "#71717A"} name={item.project?.name ?? "Inbox"} />
+          <ContextBadge
+            color={item.project?.context.color ?? "#71717A"}
+            icon={item.project?.context.icon ?? "layers"}
+            name={item.project?.name ?? "Inbox"}
+          />
         </div>
       ) : null}
       <div className="mt-1">

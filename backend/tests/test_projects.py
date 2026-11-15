@@ -9,6 +9,7 @@ async def test_deleting_a_project_nulls_item_project_and_keeps_the_item(
     _app, http = authed
     project = await http.post("/api/projects", json={"name": "Atlas", "context_id": "ctx_job1"})
     assert project.status_code == 201, project.text
+    assert project.json()["context"]["icon"] == "briefcase"
     project_id = project.json()["id"]
     note = await http.post(
         "/api/items",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,9 +17,17 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
   const pushToast = useUi((state) => state.pushToast);
   const activeContext = useUi((state) => state.contextId);
   const contexts = useContexts();
-  const fallback = activeContext === "all" ? "ctx_personal" : activeContext;
+  const listed = contexts.data?.contexts ?? [];
+  const fallback =
+    activeContext !== "all" && listed.some((context) => context.id === activeContext)
+      ? activeContext
+      : (listed.find((context) => context.slug === "personal")?.id ?? listed[0]?.id ?? "");
   const [name, setName] = useState("");
   const [chosenContext, setChosenContext] = useState(contextId ?? fallback);
+  useEffect(() => {
+    if (listed.some((context) => context.id === chosenContext)) return;
+    if (fallback) setChosenContext(fallback);
+  }, [chosenContext, fallback, listed]);
   const [color, setColor] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const swatches = [...(contexts.data?.contexts ?? []).map((context) => context.color), ZINC];

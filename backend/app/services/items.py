@@ -54,7 +54,7 @@ i.calendar_event_id, i.calendar_provider, i.external_url, i.source_item_id,
 i.source_selection, i.archived_at, i.deleted_at, i.daily_on, i.recurrence,
 i.recurrence_weekday, i.recurrence_monthday, i.created_at, i.updated_at,
 p.id AS proj_id, p.name AS proj_name, p.color AS proj_color,
-c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color
+c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color, c.icon AS ctx_icon
 """
 _FROM = """
 FROM items i
@@ -96,6 +96,7 @@ def to_item(row: Any) -> Item:
                 slug=row["ctx_slug"],
                 name=row["ctx_name"],
                 color=row["ctx_color"],
+                icon=row["ctx_icon"],
             ),
         )
     position = None if row["position"] is None else float(row["position"])

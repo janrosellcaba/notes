@@ -26,6 +26,7 @@ def to_project(row: Any) -> Project:
             slug=row["context_slug"],
             name=row["context_name"],
             color=row["context_color"],
+            icon=row["context_icon"],
         ),
         archived_at=row["archived_at"],
         created_at=row["created_at"],
@@ -35,7 +36,8 @@ def to_project(row: Any) -> Project:
 
 _SELECT = """
 SELECT p.id, p.name, p.color, p.archived_at, p.created_at, p.updated_at,
-       c.id AS context_id, c.slug AS context_slug, c.name AS context_name, c.color AS context_color
+       c.id AS context_id, c.slug AS context_slug, c.name AS context_name,
+       c.color AS context_color, c.icon AS context_icon
 FROM projects p
 JOIN contexts c ON c.id = p.context_id
 """

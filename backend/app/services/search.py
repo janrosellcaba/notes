@@ -42,6 +42,7 @@ def _project(row: Any) -> ProjectRef | None:
             slug=row["ctx_slug"],
             name=row["ctx_name"],
             color=row["ctx_color"],
+            icon=row["ctx_icon"],
         ),
     )
 
@@ -69,7 +70,8 @@ async def search_items(
                    snippet(fts_search, 1, '«', '»', '…', 18) AS body_snip,
                    snippet(fts_search, 2, '«', '»', '…', 18) AS transcript_snip,
                    p.id AS proj_id, p.name AS proj_name, p.color AS proj_color,
-                   c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color
+                   c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color,
+                   c.icon AS ctx_icon
             FROM fts_search
             JOIN items i ON i.rowid = fts_search.rowid
             LEFT JOIN projects p ON p.id = i.project_id
