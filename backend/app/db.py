@@ -68,6 +68,7 @@ class Database:
             await self._apply_pragmas()
             await self._migrate()
             await self._ensure_users()
+            await self._ensure_features()
             await self._rebuild_fts()
             await self._apply_timezone()
         except Exception:
@@ -206,6 +207,48 @@ class Database:
         )
         await conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower ON users(lower(username))"
+        )
+
+    async def _ensure_features(self) -> None:
+        """Columns and the attachment table for trash, daily notes, recurrence, and files."""
+        conn = self._connection()
+        cursor = await conn.execute("PRAGMA table_info(items)")
+        rows = await cursor.fetchall()
+        await cursor.close()
+        present = {str(row[1]) for row in rows}
+        additions = {
+            "deleted_at": "TEXT",
+            "daily_on": "TEXT",
+            "recurrence": "TEXT",
+            "recurrence_weekday": "INTEGER",
+            "recurrence_monthday": "INTEGER",
+        }
+        for name, kind in additions.items():
+            if name not in present:
+                await conn.execute(f"ALTER TABLE items ADD COLUMN {name} {kind}")
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS attachments (
+              id TEXT PRIMARY KEY,
+              item_id TEXT NOT NULL REFERENCES items(id) ON UPDATE CASCADE ON DELETE CASCADE,
+              filename TEXT NOT NULL,
+              content_type TEXT NOT NULL,
+              size INTEGER NOT NULL,
+              data BLOB NOT NULL,
+              created_at TEXT NOT NULL,
+              CHECK (size > 0)
+            )
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS attachments_item ON attachments(item_id)"
+        )
+        await conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS items_daily_on
+            ON items(daily_on)
+            WHERE daily_on IS NOT NULL AND deleted_at IS NULL
+            """
         )
 
     async def _apply_timezone(self) -> None:

@@ -40,6 +40,11 @@ class Item(BaseModel):
     source_item_id: str | None
     source_selection: str | None
     archived_at: str | None
+    deleted_at: str | None = None
+    daily_on: str | None = None
+    recurrence: Literal["weekly", "monthly"] | None = None
+    recurrence_weekday: int | None = None
+    recurrence_monthday: int | None = None
     created_at: str
     updated_at: str
 
@@ -62,6 +67,9 @@ class ItemCreate(BaseModel):
     pinned: bool = False
     transcript_raw: str | None = None
     external_url: str | None = None
+    recurrence: Literal["weekly", "monthly"] | None = None
+    recurrence_weekday: int | None = Field(default=None, ge=0, le=6)
+    recurrence_monthday: int | None = Field(default=None, ge=1, le=31)
 
 
 class ItemUpdate(BaseModel):
@@ -76,6 +84,9 @@ class ItemUpdate(BaseModel):
     pinned: bool | None = None
     transcript_raw: str | None = None
     external_url: str | None = None
+    recurrence: Literal["weekly", "monthly"] | None = None
+    recurrence_weekday: int | None = Field(default=None, ge=0, le=6)
+    recurrence_monthday: int | None = Field(default=None, ge=1, le=31)
 
 
 class ItemMove(BaseModel):
@@ -84,6 +95,21 @@ class ItemMove(BaseModel):
     status: ItemStatus
     before_id: str | None = None
     after_id: str | None = None
+
+
+class ItemRef(BaseModel):
+    id: str
+    type: ItemType
+    title: str
+
+
+class AttachmentMeta(BaseModel):
+    id: str
+    item_id: str
+    filename: str
+    content_type: str
+    size: int
+    created_at: str
 
 
 class ExtractTask(BaseModel):

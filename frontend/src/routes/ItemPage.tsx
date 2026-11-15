@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NoteSurface from "../components/editor/NoteSurface";
 import { ProjectPill } from "../components/editor/ProjectPill";
 import { TranscriptDrawer } from "../components/editor/TranscriptDrawer";
-import { aiProcess, extractTask, getItem, patchItem } from "../lib/api";
+import { aiProcess, deleteAttachment, extractTask, getItem, listAttachments, listBacklinks, patchItem, restoreItem, uploadAttachment } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -200,11 +200,130 @@ export default function ItemPage() {
       {meeting ? (
         <TranscriptDrawer value={draft.transcript} onChange={(transcript) => patchDraft({ transcript })} />
       ) : null}
+      {current.deleted_at ? (
+        <p className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-border px-3 py-2 text-[13px]">
+          This is in the trash.
+          <button
+            type="button"
+            className="min-h-11 rounded-[8px] border border-border px-3"
+            onClick={() => void restoreItem(current.id).then((saved) => queryClient.setQueryData(queryKeys.item(current.id), saved))}
+          >
+            Restore
+          </button>
+        </p>
+      ) : null}
+      {current.type === "task" ? <RepeatControl item={current} /> : null}
+      {current.type !== "task" ? <Attachments itemId={current.id} /> : null}
+      <Backlinks itemId={current.id} />
       {current.source_item_id ? (
         <p className="px-1 py-3 text-[13px] text-fg-muted">
           From <Link to={`/item/${current.source_item_id}`} className="underline">source</Link>
         </p>
       ) : null}
     </div>
+  );
+}
+
+function RepeatControl({ item }: { item: Item }) {
+  const queryClient = useQueryClient();
+  return (
+    <label className="mt-3 block px-1 text-[13px] text-fg-secondary">
+      Repeats
+      <select
+        value={item.recurrence ?? ""}
+        className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
+        onChange={(event) => {
+          const next = event.target.value as "" | "weekly" | "monthly";
+          const due = item.due_on;
+          const dueDate = due ? new Date(`${due}T00:00:00`) : new Date();
+          void patchItem(item.id, {
+            recurrence: next || null,
+            recurrence_weekday: next === "weekly" ? (dueDate.getDay() + 6) % 7 : null,
+            recurrence_monthday: next === "monthly" ? (due ? Number(due.slice(8, 10)) : 1) : null,
+          }).then((saved) => {
+            queryClient.setQueryData(queryKeys.item(item.id), saved);
+            void queryClient.invalidateQueries({ queryKey: ["items"] });
+          });
+        }}
+      >
+        <option value="">Does not repeat</option>
+        <option value="weekly">Every week</option>
+        <option value="monthly">Every month</option>
+      </select>
+    </label>
+  );
+}
+
+function Backlinks({ itemId }: { itemId: string }) {
+  const links = useQuery({ queryKey: ["backlinks", itemId], queryFn: () => listBacklinks(itemId) });
+  const items = links.data?.items ?? [];
+  if (items.length === 0) return null;
+  return (
+    <section className="mt-4 px-1">
+      <h2 className="text-[13px] text-fg-muted">Linked from</h2>
+      <ul className="mt-2 flex flex-col gap-1">
+        {items.map((item) => (
+          <li key={item.id}>
+            <Link to={`/item/${item.id}`} className="underline">{item.title || "Untitled"}</Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Attachments({ itemId }: { itemId: string }) {
+  const queryClient = useQueryClient();
+  const pushToast = useUi((state) => state.pushToast);
+  const files = useQuery({ queryKey: ["attachments", itemId], queryFn: () => listAttachments(itemId) });
+
+  async function onFiles(list: FileList | null) {
+    if (!list) return;
+    try {
+      for (const file of list) await uploadAttachment(itemId, file);
+      await queryClient.invalidateQueries({ queryKey: ["attachments", itemId] });
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not attach the file");
+    }
+  }
+
+  return (
+    <section
+      className="mt-4 rounded-[10px] border border-dashed border-border px-4 py-3"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault();
+        void onFiles(event.dataTransfer.files);
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[13px] text-fg-muted">Attachments</h2>
+        <label className="min-h-11 cursor-pointer rounded-[8px] border border-border px-3 leading-[2.75rem]">
+          Add image or PDF
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+            className="sr-only"
+            onChange={(event) => void onFiles(event.target.files)}
+          />
+        </label>
+      </div>
+      <ul className="mt-2 flex flex-col gap-1">
+        {(files.data ?? []).map((file) => (
+          <li key={file.id} className="flex items-center justify-between gap-3 text-[14px]">
+            <a className="truncate underline" href={`/api/items/${itemId}/attachments/${file.id}`}>
+              {file.filename}
+            </a>
+            <button
+              type="button"
+              className="text-[13px] text-fg-muted"
+              onClick={() => void deleteAttachment(itemId, file.id).then(() => queryClient.invalidateQueries({ queryKey: ["attachments", itemId] }))}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

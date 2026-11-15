@@ -58,8 +58,22 @@ export type Item = {
   source_item_id: string | null;
   source_selection: string | null;
   archived_at: string | null;
+  deleted_at: string | null;
+  daily_on: string | null;
+  recurrence: "weekly" | "monthly" | null;
+  recurrence_weekday: number | null;
+  recurrence_monthday: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Attachment = {
+  id: string;
+  item_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  created_at: string;
 };
 
 export type ItemList = {
@@ -90,6 +104,9 @@ export type ItemPatch = {
   pinned?: boolean;
   transcript_raw?: string | null;
   external_url?: string | null;
+  recurrence?: "weekly" | "monthly" | null;
+  recurrence_weekday?: number | null;
+  recurrence_monthday?: number | null;
 };
 
 export type ItemFilters = {
@@ -102,6 +119,7 @@ export type ItemFilters = {
   today?: string;
   include_done?: boolean;
   archived?: boolean;
+  trashed?: boolean;
   limit?: number;
   cursor?: string;
 };

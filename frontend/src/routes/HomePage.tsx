@@ -1,5 +1,8 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 
+import { createItem, dailyNote } from "../lib/api";
+import { meetingTitle, todayISO } from "../lib/dates";
 import { useUi } from "../stores/ui";
 import { useHomeFeed } from "../lib/queries";
 import { Button } from "../components/ui/Button";
@@ -9,7 +12,9 @@ import { TaskRow } from "../components/items/TaskRow";
 import { ChevronDown } from "lucide-react";
 
 export function HomePage() {
+  const navigate = useNavigate();
   const openCapture = useUi((state) => state.openCapture);
+  const pushToast = useUi((state) => state.pushToast);
   const calendarOpen = useUi((state) => state.calendarSlotOpen);
   const setCalendarOpen = useUi((state) => state.setCalendarSlotOpen);
   const home = useHomeFeed();
@@ -27,6 +32,24 @@ export function HomePage() {
     }, 400);
     return () => window.clearTimeout(timer);
   }, []);
+  async function openDaily() {
+    try {
+      const note = await dailyNote(todayISO());
+      void navigate(`/item/${note.id}`);
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not open today's note");
+    }
+  }
+
+  async function openMeeting() {
+    try {
+      const meeting = await createItem({ type: "meeting", title: meetingTitle() });
+      void navigate(`/item/${meeting.id}`);
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Could not create the meeting");
+    }
+  }
+
   const pinned = home.data?.pinned ?? [];
   const tasks = home.data?.today_tasks ?? [];
 
@@ -53,6 +76,20 @@ export function HomePage() {
             onClick={() => openCapture({ type: "task" })}
           >
             + Quick Task
+          </button>
+          <button
+            type="button"
+            className="min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-2"
+            onClick={() => void openDaily()}
+          >
+            Today’s note
+          </button>
+          <button
+            type="button"
+            className="min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-2"
+            onClick={() => void openMeeting()}
+          >
+            + Meeting
           </button>
           <button
             type="button"

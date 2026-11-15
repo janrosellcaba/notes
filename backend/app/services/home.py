@@ -31,12 +31,12 @@ async def home_feed(db: Database, *, context_id: str | None, today: str) -> Home
         context_sql = "AND (i.project_id IS NULL OR c.id = ?)"
         context_params = (context_id,)
     count = await db.fetchone(
-        "SELECT COUNT(*) AS n FROM items WHERE project_id IS NULL AND archived_at IS NULL"
+        "SELECT COUNT(*) AS n FROM items WHERE project_id IS NULL AND archived_at IS NULL AND deleted_at IS NULL"
     )
     pinned_rows = await db.fetchall(
         f"""
         SELECT {_COLUMNS} {_FROM}
-        WHERE i.pinned = 1 AND i.archived_at IS NULL AND i.type IN ('note', 'meeting')
+        WHERE i.pinned = 1 AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.type IN ('note', 'meeting')
           {context_sql}
         ORDER BY i.updated_at DESC
         LIMIT 24
@@ -46,7 +46,7 @@ async def home_feed(db: Database, *, context_id: str | None, today: str) -> Home
     task_rows = await db.fetchall(
         f"""
         SELECT {_COLUMNS} {_FROM}
-        WHERE i.type = 'task' AND i.archived_at IS NULL AND i.due_on = ? AND i.status != 'done'
+        WHERE i.type = 'task' AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.due_on = ? AND i.status != 'done'
           {context_sql}
         ORDER BY {_PRIORITY}, i.position ASC
         """,

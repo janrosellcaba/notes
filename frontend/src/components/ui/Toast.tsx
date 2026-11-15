@@ -3,7 +3,19 @@ import { Link } from "react-router";
 
 import { useUi } from "../../stores/ui";
 
-function ToastItem({ id, message, href, label }: { id: string; message: string; href?: string; label?: string }) {
+function ToastItem({
+  id,
+  message,
+  href,
+  label,
+  action,
+}: {
+  id: string;
+  message: string;
+  href?: string;
+  label?: string;
+  action?: { label: string; run: () => void };
+}) {
   const dismiss = useUi((state) => state.dismissToast);
   useEffect(() => {
     const timer = window.setTimeout(() => dismiss(id), 4000);
@@ -17,6 +29,11 @@ function ToastItem({ id, message, href, label }: { id: string; message: string; 
           {label}
         </Link>
       ) : null}
+      {action ? (
+        <button type="button" className="ml-2 underline" onClick={() => { action.run(); dismiss(id); }}>
+          {action.label}
+        </button>
+      ) : null}
     </p>
   );
 }
@@ -27,7 +44,14 @@ export function Toasts() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 md:bottom-6">
       {toasts.map((toast) => (
-        <ToastItem key={toast.id} id={toast.id} message={toast.message} href={toast.link?.href} label={toast.link?.label} />
+        <ToastItem
+          key={toast.id}
+          id={toast.id}
+          message={toast.message}
+          href={toast.link?.href}
+          label={toast.link?.label}
+          action={toast.action}
+        />
       ))}
     </div>
   );

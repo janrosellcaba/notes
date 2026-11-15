@@ -5,6 +5,7 @@ import type {
   ContextList,
   HomeFeed,
   Integrations,
+  Attachment,
   Item,
   ItemCreate,
   ItemFilters,
@@ -189,6 +190,52 @@ export function archiveItem(id: string): Promise<Item> {
 
 export function deleteItem(id: string): Promise<void> {
   return api<void>(`/api/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function restoreItem(id: string): Promise<Item> {
+  return api<Item>(`/api/items/${encodeURIComponent(id)}/restore`, { method: "POST" });
+}
+
+export function purgeItem(id: string): Promise<void> {
+  return api<void>(`/api/items/${encodeURIComponent(id)}/permanent`, { method: "DELETE" });
+}
+
+export function dailyNote(day: string): Promise<Item> {
+  return api<Item>(`/api/items/daily?day=${encodeURIComponent(day)}`);
+}
+
+export function lookupTitle(title: string): Promise<{ id: string; type: string; title: string }> {
+  return api(`/api/items/lookup?title=${encodeURIComponent(title)}`);
+}
+
+export function listBacklinks(id: string): Promise<ItemList> {
+  return api<ItemList>(`/api/items/${encodeURIComponent(id)}/backlinks`);
+}
+
+export function listAttachments(id: string): Promise<Attachment[]> {
+  return api<Attachment[]>(`/api/items/${encodeURIComponent(id)}/attachments`);
+}
+
+export async function uploadAttachment(id: string, file: File): Promise<Attachment> {
+  const body = new FormData();
+  body.set("file", file);
+  const response = await fetch(`/api/items/${encodeURIComponent(id)}/attachments`, {
+    method: "POST",
+    body,
+    credentials: "same-origin",
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = payload && typeof payload === "object" && "detail" in payload ? String(payload.detail) : "Upload failed";
+    throw new ApiError(response.status, "upload", detail);
+  }
+  return payload as Attachment;
+}
+
+export function deleteAttachment(itemId: string, attachmentId: string): Promise<void> {
+  return api<void>(`/api/items/${encodeURIComponent(itemId)}/attachments/${encodeURIComponent(attachmentId)}`, {
+    method: "DELETE",
+  });
 }
 
 export function convertItem(id: string): Promise<Item> {

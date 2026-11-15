@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,8 +39,15 @@ async def export_json(db: Database) -> tuple[dict[str, Any], str]:
         SELECT id, type, title, body_md, project_id, status, priority, due_on, completed_at,
                position, pinned, transcript_raw, ai_summary, ai_action_items, calendar_event_id,
                calendar_provider, external_url, source_item_id, source_selection, archived_at,
+               deleted_at, daily_on, recurrence, recurrence_weekday, recurrence_monthday,
                created_at, updated_at
         FROM items ORDER BY created_at, id
+        """
+    )
+    attachments = await db.fetchall(
+        """
+        SELECT id, item_id, filename, content_type, size, created_at, data
+        FROM attachments ORDER BY created_at, id
         """
     )
     payload = {
@@ -51,6 +59,18 @@ async def export_json(db: Database) -> tuple[dict[str, Any], str]:
         "items": [
             {**dict(row), "pinned": _pinned(row["pinned"]), "position": None if row["position"] is None else float(row["position"])}
             for row in items
+        ],
+        "attachments": [
+            {
+                "id": row["id"],
+                "item_id": row["item_id"],
+                "filename": row["filename"],
+                "content_type": row["content_type"],
+                "size": row["size"],
+                "created_at": row["created_at"],
+                "data_base64": base64.b64encode(row["data"]).decode("ascii"),
+            }
+            for row in attachments
         ],
     }
     return payload, f"notes-{_stamp()}.json"

@@ -20,6 +20,7 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
   const [due, setDue] = useState(item.due_on ?? "");
   const [priority, setPriority] = useState<ItemPriority>(item.priority ?? "none");
   const [projectId, setProjectId] = useState(item.project?.id ?? "");
+  const [repeat, setRepeat] = useState(item.recurrence ?? "");
 
   useEffect(() => {
     if (title === item.title && body === item.body_md) return;
@@ -80,6 +81,27 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
                 {option}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="block text-[13px] text-fg-secondary">
+          Repeats
+          <select
+            value={repeat}
+            className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
+            onChange={(event) => {
+              const next = event.target.value as "" | "weekly" | "monthly";
+              setRepeat(next);
+              const dueDate = due ? new Date(`${due}T00:00:00`) : new Date();
+              void save({
+                recurrence: next || null,
+                recurrence_weekday: next === "weekly" ? (dueDate.getDay() + 6) % 7 : null,
+                recurrence_monthday: next === "monthly" ? (due ? Number(due.slice(8, 10)) : 1) : null,
+              });
+            }}
+          >
+            <option value="">Does not repeat</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
           </select>
         </label>
         <label className="block text-[13px] text-fg-secondary">

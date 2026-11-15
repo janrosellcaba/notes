@@ -13,7 +13,8 @@ export type CaptureRequest =
 
 type Overlay = { id: string; close: () => void };
 type ToastLink = { href: string; label: string };
-type Toast = { id: string; message: string; link?: ToastLink };
+type ToastAction = { label: string; run: () => void };
+type Toast = { id: string; message: string; link?: ToastLink; action?: ToastAction };
 
 const KEYS = {
   contextId: "notes.contextId",
@@ -70,7 +71,7 @@ type UiState = {
   mountOverlay: (id: string, close: () => void) => void;
   unmountOverlay: (id: string) => void;
   closeTopOverlay: () => void;
-  pushToast: (message: string, link?: ToastLink) => void;
+  pushToast: (message: string, link?: ToastLink, action?: ToastAction) => void;
   dismissToast: (id: string) => void;
 };
 
@@ -122,7 +123,7 @@ export const useUi = create<UiState>((set, get) => ({
   closeTopOverlay: () => {
     get().overlays.at(-1)?.close();
   },
-  pushToast: (message, link) =>
-    set((state) => ({ toasts: [...state.toasts, { id: crypto.randomUUID(), message, link }] })),
+  pushToast: (message, link, action) =>
+    set((state) => ({ toasts: [...state.toasts, { id: crypto.randomUUID(), message, link, action }] })),
   dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
 }));

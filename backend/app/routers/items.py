@@ -2,24 +2,26 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, File, Header, Query, Response, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.db import Database
 from app.deps import get_current_user, get_db
 from app.schemas.ai import AIProcessResult, PlannedEffects
 from app.schemas.item import (
+    AttachmentMeta,
     DueFilter,
     ExtractTask,
     Item,
     ItemCreate,
     ItemList,
     ItemMove,
+    ItemRef,
     ItemStatus,
     ItemType,
     ItemUpdate,
 )
-from app.services import items
+from app.services import attachments, items
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(get_current_user)])
 
@@ -35,6 +37,7 @@ async def list_items(
     today: str | None = None,
     include_done: bool = False,
     archived: bool = False,
+    trashed: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
     db: Database = Depends(get_db),
@@ -50,6 +53,7 @@ async def list_items(
         today=today,
         include_done=include_done,
         archived=archived,
+        trashed=trashed,
         limit=limit,
         cursor=cursor,
     )
@@ -69,6 +73,37 @@ async def create_item(
     return item
 
 
+@router.get("/trash", response_model=ItemList)
+async def trash(db: Database = Depends(get_db)) -> ItemList:
+    found, _cursor = await items.list_items(
+        db,
+        type=None,
+        project_id=None,
+        context_id=None,
+        pinned=None,
+        status=None,
+        due=None,
+        today=None,
+        include_done=True,
+        archived=False,
+        trashed=True,
+        limit=200,
+        cursor=None,
+    )
+    return ItemList(items=found, next_cursor=None)
+
+
+@router.get("/daily", response_model=Item)
+async def daily(day: str, db: Database = Depends(get_db)) -> Item:
+    return await items.daily_note(db, day)
+
+
+@router.get("/lookup", response_model=ItemRef)
+async def lookup(title: str, db: Database = Depends(get_db)) -> ItemRef:
+    item = await items.lookup_title(db, title)
+    return ItemRef(id=item.id, type=item.type, title=item.title)
+
+
 @router.get("/{item_id}", response_model=Item)
 async def get_item(item_id: str, db: Database = Depends(get_db)) -> Item:
     return await items.get_item(db, item_id)
@@ -82,6 +117,60 @@ async def update_item(item_id: str, body: ItemUpdate, db: Database = Depends(get
 @router.delete("/{item_id}", status_code=204)
 async def delete_item(item_id: str, db: Database = Depends(get_db)) -> Response:
     await items.delete_item(db, item_id)
+    return Response(status_code=204)
+
+
+@router.post("/{item_id}/restore", response_model=Item)
+async def restore_item(item_id: str, db: Database = Depends(get_db)) -> Item:
+    return await items.restore_item(db, item_id)
+
+
+@router.delete("/{item_id}/permanent", status_code=204)
+async def purge_item(item_id: str, db: Database = Depends(get_db)) -> Response:
+    await items.purge_item(db, item_id)
+    return Response(status_code=204)
+
+
+@router.get("/{item_id}/backlinks", response_model=ItemList)
+async def backlinks(item_id: str, db: Database = Depends(get_db)) -> ItemList:
+    found = await items.backlinks(db, item_id)
+    return ItemList(items=found, next_cursor=None)
+
+
+@router.get("/{item_id}/attachments", response_model=list[AttachmentMeta])
+async def list_attachments(item_id: str, db: Database = Depends(get_db)) -> list[AttachmentMeta]:
+    return await attachments.list_attachments(db, item_id)
+
+
+@router.post("/{item_id}/attachments", response_model=AttachmentMeta, status_code=201)
+async def upload_attachment(
+    item_id: str,
+    file: Annotated[UploadFile, File()],
+    db: Database = Depends(get_db),
+) -> AttachmentMeta:
+    data = await file.read()
+    return await attachments.add_attachment(
+        db,
+        item_id,
+        filename=file.filename or "file",
+        content_type=file.content_type or "",
+        data=data,
+    )
+
+
+@router.get("/{item_id}/attachments/{attachment_id}")
+async def download_attachment(item_id: str, attachment_id: str, db: Database = Depends(get_db)) -> Response:
+    meta, data = await attachments.read_attachment(db, item_id, attachment_id)
+    return Response(
+        content=data,
+        media_type=meta.content_type,
+        headers={"Content-Disposition": f'inline; filename="{meta.filename}"'},
+    )
+
+
+@router.delete("/{item_id}/attachments/{attachment_id}", status_code=204)
+async def remove_attachment(item_id: str, attachment_id: str, db: Database = Depends(get_db)) -> Response:
+    await attachments.delete_attachment(db, item_id, attachment_id)
     return Response(status_code=204)
 
 

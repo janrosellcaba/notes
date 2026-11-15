@@ -56,7 +56,7 @@ async def search_items(
     if context_id is not None:
         await require_context(db, context_id)
     match = build_match(query)
-    clauses = ["fts_search MATCH ?", "i.archived_at IS NULL"]
+    clauses = ["fts_search MATCH ?", "i.archived_at IS NULL", "i.deleted_at IS NULL"]
     params: list[Any] = [match]
     if context_id is not None:
         clauses.append("(i.project_id IS NULL OR c.id = ?)")

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { archiveItem, convertItem, deleteItem, errorMessage, patchItem } from "../../lib/api";
+import { archiveItem, convertItem, deleteItem, errorMessage, patchItem, restoreItem } from "../../lib/api";
 import { dropInboxItem, invalidateItemViews, mapItem, restoreLists, snapshotLists } from "../../lib/cache";
 import { cn } from "../../lib/cn";
 import { relativeTime } from "../../lib/dates";
@@ -87,6 +87,14 @@ export function InboxCard({ item, projects }: { item: Item; projects: Project[] 
     },
     onError: (error, _vars, context) => {
       if (context) fail(error, context.snapshot);
+    },
+    onSuccess: () => {
+      pushToast("Moved to trash", { href: "/trash", label: "View" }, {
+        label: "Undo",
+        run: () => {
+          void restoreItem(item.id).then(() => invalidateItemViews(queryClient, item.id));
+        },
+      });
     },
     onSettled: () => invalidateItemViews(queryClient, item.id),
   });

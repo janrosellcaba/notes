@@ -1,9 +1,18 @@
+import { Link } from "react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 function allowHttp(url: string): string {
+  if (url.startsWith("/go/")) return url;
   if (url.startsWith("https://") || url.startsWith("http://")) return url;
   return "";
+}
+
+function withWikilinks(text: string): string {
+  return text.replace(/\[\[([^\]\n]{1,200})\]\]/g, (_match, title: string) => {
+    const label = title.trim();
+    return `[${label}](/go/${encodeURIComponent(label)})`;
+  });
 }
 
 export function MarkdownPreview({ text }: { text: string }) {
@@ -15,7 +24,11 @@ export function MarkdownPreview({ text }: { text: string }) {
         urlTransform={allowHttp}
         components={{
           a: ({ href, children }) =>
-            href ? (
+            href?.startsWith("/go/") ? (
+              <Link to={href} className="underline">
+                {children}
+              </Link>
+            ) : href ? (
               <a href={href} className="underline" rel="noreferrer">
                 {children}
               </a>
@@ -25,7 +38,7 @@ export function MarkdownPreview({ text }: { text: string }) {
           code: ({ children }) => <code className="font-mono text-[13px]">{children}</code>,
         }}
       >
-        {text}
+        {withWikilinks(text)}
       </ReactMarkdown>
     </div>
   );

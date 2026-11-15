@@ -1,5 +1,5 @@
 import { NavLink } from "react-router";
-import { Folder, Home, Inbox, ListTodo, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Folder, Home, Inbox, ListTodo, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
 
 import { cn } from "../../lib/cn";
 import { useHomeFeed, useProjectList } from "../../lib/queries";
@@ -10,6 +10,7 @@ const DESTINATIONS = [
   { to: "/inbox", label: "Inbox", icon: Inbox, end: false },
   { to: "/projects", label: "Projects", icon: Folder, end: false },
   { to: "/tasks", label: "Tasks", icon: ListTodo, end: false },
+  { to: "/trash", label: "Trash", icon: Trash2, end: false },
 ] as const;
 
 export function Sidebar() {

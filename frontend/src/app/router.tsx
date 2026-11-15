@@ -14,7 +14,9 @@ const ItemPage = lazy(() => import("../routes/ItemPage"));
 import { ProjectDetailPage } from "../routes/ProjectDetailPage";
 import { ProjectsPage } from "../routes/ProjectsPage";
 import { SettingsPage } from "../routes/SettingsPage";
+import { GoPage } from "../routes/GoPage";
 import { TasksPage } from "../routes/TasksPage";
+import { TrashPage } from "../routes/TrashPage";
 
 function RequireAuth() {
   const location = useLocation();
@@ -47,6 +49,8 @@ export function AppRouter() {
             }
           />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="trash" element={<TrashPage />} />
+          <Route path="go/:title" element={<GoPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import base64
+import calendar
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -32,13 +33,26 @@ BODY_MAX = 500_000
 TRANSCRIPT_MAX = 2_000_000
 SELECTION_MAX = 2_000
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MEETING_TEMPLATE = """## Attendees
+
+- 
+
+## Decisions
+
+- 
+
+## Action items
+
+- 
+"""
 _SAME_PROJECT = "((? IS NULL AND project_id IS NULL) OR project_id = ?)"
 
 _COLUMNS = """
 i.id, i.type, i.title, i.body_md, i.status, i.priority, i.due_on, i.completed_at,
 i.position, i.pinned, i.transcript_raw, i.ai_summary, i.ai_action_items,
 i.calendar_event_id, i.calendar_provider, i.external_url, i.source_item_id,
-i.source_selection, i.archived_at, i.created_at, i.updated_at,
+i.source_selection, i.archived_at, i.deleted_at, i.daily_on, i.recurrence,
+i.recurrence_weekday, i.recurrence_monthday, i.created_at, i.updated_at,
 p.id AS proj_id, p.name AS proj_name, p.color AS proj_color,
 c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color
 """
@@ -106,6 +120,11 @@ def to_item(row: Any) -> Item:
         source_item_id=row["source_item_id"],
         source_selection=row["source_selection"],
         archived_at=row["archived_at"],
+        deleted_at=row["deleted_at"],
+        daily_on=row["daily_on"],
+        recurrence=row["recurrence"],
+        recurrence_weekday=row["recurrence_weekday"],
+        recurrence_monthday=row["recurrence_monthday"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -156,6 +175,7 @@ async def list_items(
     today: str | None,
     include_done: bool,
     archived: bool,
+    trashed: bool,
     limit: int,
     cursor: str | None,
 ) -> tuple[list[Item], str | None]:
@@ -166,7 +186,9 @@ async def list_items(
     if due in ("overdue", "today", "upcoming") and today is None:
         field_error("today", "today must be YYYY-MM-DD")
 
-    clauses = ["i.archived_at IS NOT NULL" if archived else "i.archived_at IS NULL"]
+    clauses = ["i.deleted_at IS NOT NULL" if trashed else "i.deleted_at IS NULL"]
+    if not trashed:
+        clauses.append("i.archived_at IS NOT NULL" if archived else "i.archived_at IS NULL")
     params: list[Any] = []
     if type is not None:
         clauses.append("i.type = ?")
@@ -252,7 +274,7 @@ async def list_items(
     return [to_item(row) for row in page], next_cursor
 
 
-async def _next_position(tx: Transaction, project_id: str | None, status: str) -> float:
+async def _next_position(tx: Reader, project_id: str | None, status: str) -> float:
     row = await tx.fetchone(
         f"""
         SELECT COALESCE(MAX(position), 0) + 1024 AS pos
@@ -292,6 +314,11 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
     pinned = body.pinned
     if body.type == "note" and not title.strip() and body.body_md.strip():
         title = "Untitled"
+    body_md = body.body_md
+    if body.type == "meeting" and not body_md.strip():
+        body_md = MEETING_TEMPLATE
+        if not title.strip():
+            title = "Meeting"
     if body.type == "task":
         if not title.strip():
             field_error("title", "Tasks require a title")
@@ -303,10 +330,26 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
         due_on = body.due_on
         pinned = False
         transcript = None
+    recurrence = body.recurrence
+    weekday = body.recurrence_weekday
+    monthday = body.recurrence_monthday
+    if body.type != "task" and (recurrence or weekday is not None or monthday is not None):
+        field_error("recurrence", "Only tasks can repeat")
+    if body.type == "task" and recurrence == "weekly" and weekday is None and due_on:
+        weekday = datetime.strptime(due_on, "%Y-%m-%d").weekday()
+    if body.type == "task" and recurrence == "monthly" and monthday is None:
+        monthday = int(due_on[8:10]) if due_on else 1
+    if body.type != "task":
+        recurrence = None
+        weekday = None
+        monthday = None
     return {
         "type": body.type,
         "title": title,
-        "body_md": body.body_md,
+        "body_md": body_md,
+        "recurrence": recurrence,
+        "recurrence_weekday": weekday,
+        "recurrence_monthday": monthday,
         "project_id": body.project_id,
         "status": status,
         "priority": priority,
@@ -354,8 +397,9 @@ async def create_item(
             """
             INSERT INTO items (
               id, type, title, body_md, project_id, status, priority, due_on, completed_at,
-              position, pinned, transcript_raw, external_url, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              position, pinned, transcript_raw, external_url, recurrence, recurrence_weekday,
+              recurrence_monthday, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item_id,
@@ -371,6 +415,9 @@ async def create_item(
                 prepared["pinned"],
                 prepared["transcript_raw"],
                 prepared["external_url"],
+                prepared["recurrence"],
+                prepared["recurrence_weekday"],
+                prepared["recurrence_monthday"],
                 now,
                 now,
             ),
@@ -452,6 +499,17 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
             field_error("pinned", "Tasks cannot be pinned")
         if current.type != "task":
             sets["pinned"] = 1 if changes["pinned"] else 0
+    if any(field in changes for field in ("recurrence", "recurrence_weekday", "recurrence_monthday")):
+        if current.type != "task":
+            field_error("recurrence", "Only tasks can repeat")
+        recurrence = changes["recurrence"] if "recurrence" in changes else current.recurrence
+        weekday = changes["recurrence_weekday"] if "recurrence_weekday" in changes else current.recurrence_weekday
+        monthday = changes["recurrence_monthday"] if "recurrence_monthday" in changes else current.recurrence_monthday
+        if recurrence not in (None, "weekly", "monthly"):
+            field_error("recurrence", "Repeat is weekly or monthly")
+        sets["recurrence"] = recurrence
+        sets["recurrence_weekday"] = weekday
+        sets["recurrence_monthday"] = monthday
     if "transcript_raw" in changes:
         transcript = _blank(changes["transcript_raw"])
         if current.type != "meeting":
@@ -467,12 +525,160 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
         f"UPDATE items SET {assignments} WHERE id = ?",
         [*sets.values(), item_id],
     )
-    return await get_item(db, item_id)
+    updated = await get_item(db, item_id)
+    became_done = current.status != "done" and updated.status == "done" and updated.recurrence in ("weekly", "monthly")
+    if became_done:
+        await _spawn_next(db, updated)
+    return updated
+
+
+def _next_due(item: Item) -> str:
+    base_text = item.due_on or datetime.now(UTC).date().isoformat()
+    base = datetime.strptime(base_text, "%Y-%m-%d").date()
+    if item.recurrence == "weekly":
+        weekday = item.recurrence_weekday if item.recurrence_weekday is not None else base.weekday()
+        delta = (weekday - base.weekday()) % 7
+        if delta == 0:
+            delta = 7
+        return (base + timedelta(days=delta)).isoformat()
+    day = item.recurrence_monthday or base.day
+    month = base.month + 1
+    year = base.year + (1 if month == 13 else 0)
+    month = 1 if month == 13 else month
+    last = calendar.monthrange(year, month)[1]
+    return datetime(year, month, min(day, last)).date().isoformat()
+
+
+async def _spawn_next(db: Database, item: Item) -> None:
+    due = _next_due(item)
+    project_id = None if item.project is None else item.project.id
+    existing = await db.fetchone(
+        f"""
+        SELECT id FROM items
+        WHERE type = 'task' AND title = ? AND due_on = ? AND recurrence = ?
+          AND deleted_at IS NULL AND status != 'done' AND {_SAME_PROJECT}
+        """,
+        (item.title, due, item.recurrence, project_id, project_id),
+    )
+    if existing is not None:
+        return
+    position = await _next_position(db, project_id, "todo")
+    now = utc_now()
+    await db.execute(
+        """
+        INSERT INTO items (
+          id, type, title, body_md, project_id, status, priority, due_on, position, pinned,
+          recurrence, recurrence_weekday, recurrence_monthday, created_at, updated_at
+        ) VALUES (?, 'task', ?, ?, ?, 'todo', ?, ?, ?, 0, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid4()),
+            item.title,
+            item.body_md,
+            project_id,
+            item.priority or "none",
+            due,
+            position,
+            item.recurrence,
+            item.recurrence_weekday,
+            item.recurrence_monthday,
+            now,
+            now,
+        ),
+    )
 
 
 async def delete_item(db: Database, item_id: str) -> None:
     await get_item(db, item_id)
+    await db.execute(
+        "UPDATE items SET deleted_at = ?, daily_on = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+        (utc_now(), utc_now(), item_id),
+    )
+
+
+async def restore_item(db: Database, item_id: str) -> Item:
+    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ?", (item_id,))
+    if row is None:
+        raise AppError(404, "Item not found", "not_found")
+    if row["deleted_at"] is None:
+        return await get_item(db, item_id)
+    await db.execute(
+        "UPDATE items SET deleted_at = NULL, updated_at = ? WHERE id = ?",
+        (utc_now(), item_id),
+    )
+    return await get_item(db, item_id)
+
+
+async def purge_item(db: Database, item_id: str) -> None:
+    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ?", (item_id,))
+    if row is None:
+        raise AppError(404, "Item not found", "not_found")
+    if row["deleted_at"] is None:
+        raise AppError(409, "Move the item to trash before deleting it", "not_trashed")
     await db.execute("DELETE FROM items WHERE id = ?", (item_id,))
+
+
+async def purge_expired_trash(db: Database, *, days: int = 30) -> None:
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    await db.execute("DELETE FROM items WHERE deleted_at IS NOT NULL AND deleted_at < ?", (cutoff,))
+
+
+async def daily_note(db: Database, day: str) -> Item:
+    if not _valid_day(day):
+        field_error("day", "day must be YYYY-MM-DD")
+    existing = await db.fetchone(
+        "SELECT id FROM items WHERE daily_on = ? AND deleted_at IS NULL",
+        (day,),
+    )
+    if existing is not None:
+        return await get_item(db, str(existing["id"]))
+    parsed = datetime.strptime(day, "%Y-%m-%d")
+    title = f"{parsed.day} {parsed.strftime('%B %Y')}"
+    now = utc_now()
+    item_id = str(uuid4())
+    await db.execute(
+        """
+        INSERT INTO items (id, type, title, body_md, pinned, daily_on, created_at, updated_at)
+        VALUES (?, 'note', ?, '', 0, ?, ?, ?)
+        """,
+        (item_id, title, day, now, now),
+    )
+    return await get_item(db, item_id)
+
+
+async def lookup_title(db: Database, title: str) -> Item:
+    cleaned = title.strip()
+    if not cleaned:
+        field_error("title", "Title is empty")
+    row = await db.fetchone(
+        f"SELECT {_COLUMNS} {_FROM} WHERE i.deleted_at IS NULL AND i.title = ? ORDER BY i.updated_at DESC LIMIT 1",
+        (cleaned,),
+    )
+    if row is None:
+        raise AppError(404, "No note with that title", "not_found")
+    return to_item(row)
+
+
+def _like_literal(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+async def backlinks(db: Database, item_id: str) -> list[Item]:
+    item = await get_item(db, item_id)
+    title = item.title.strip()
+    if not title:
+        return []
+    needle = f"%{_like_literal(f'[[{title}]]')}%"
+    rows = await db.fetchall(
+        f"""
+        SELECT {_COLUMNS} {_FROM}
+        WHERE i.id != ? AND i.deleted_at IS NULL AND i.body_md LIKE ? ESCAPE '\\'
+        ORDER BY i.updated_at DESC
+        LIMIT 50
+        """,
+        (item_id, needle),
+    )
+    return [to_item(row) for row in rows]
 
 
 async def set_archived(db: Database, item_id: str, *, archived: bool) -> Item:
