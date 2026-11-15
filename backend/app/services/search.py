@@ -49,16 +49,17 @@ def _project(row: Any) -> ProjectRef | None:
 
 async def search_items(
     db: Database,
+    user_id: str,
     *,
     query: str,
     context_id: str | None,
     limit: int,
 ) -> list[SearchHit]:
     if context_id is not None:
-        await require_context(db, context_id)
+        await require_context(db, user_id, context_id)
     match = build_match(query)
-    clauses = ["fts_search MATCH ?", "i.archived_at IS NULL", "i.deleted_at IS NULL"]
-    params: list[Any] = [match]
+    clauses = ["fts_search MATCH ?", "i.user_id = ?", "i.archived_at IS NULL", "i.deleted_at IS NULL"]
+    params: list[Any] = [match, user_id]
     if context_id is not None:
         clauses.append("(c.id = ? OR (i.project_id IS NULL AND i.context_id IS NULL))")
         params.append(context_id)

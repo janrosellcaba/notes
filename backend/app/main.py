@@ -54,6 +54,16 @@ async def lifespan(app: FastAPI):
     await database.connect()
     app.state.db = database
     await ensure_admin_user(database, settings.admin_username.strip(), app.state.password_hash)
+    from app import tenancy
+
+    admin = await database.fetchone(
+        "SELECT id FROM users WHERE username = ?",
+        (settings.admin_username.strip(),),
+    )
+    if admin is not None:
+        await tenancy.claim_unowned(database, str(admin["id"]))
+        await tenancy.ensure_user_contexts(database, str(admin["id"]))
+    await tenancy.purge_legacy_shared_demo(database)
     await purge_expired_trash(database)
     try:
         yield

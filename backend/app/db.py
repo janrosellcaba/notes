@@ -272,6 +272,77 @@ class Database:
         await conn.execute(
             "UPDATE contexts SET icon = 'house' WHERE icon IS NULL AND slug = 'personal'"
         )
+        await self._ensure_tenancy()
+
+    async def _ensure_tenancy(self) -> None:
+        """Isolate contexts, projects, and items by user_id."""
+        conn = self._connection()
+        cursor = await conn.execute("PRAGMA table_info(projects)")
+        project_cols = {str(row[1]) for row in await cursor.fetchall()}
+        await cursor.close()
+        if "user_id" not in project_cols:
+            await conn.execute("ALTER TABLE projects ADD COLUMN user_id TEXT")
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS projects_user ON projects(user_id) WHERE user_id IS NOT NULL"
+        )
+
+        cursor = await conn.execute("PRAGMA table_info(items)")
+        item_cols = {str(row[1]) for row in await cursor.fetchall()}
+        await cursor.close()
+        if "user_id" not in item_cols:
+            await conn.execute("ALTER TABLE items ADD COLUMN user_id TEXT")
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS items_user ON items(user_id) WHERE user_id IS NOT NULL"
+        )
+        await conn.execute("DROP INDEX IF EXISTS items_daily_on")
+        await conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS items_daily_on
+            ON items(user_id, daily_on)
+            WHERE daily_on IS NOT NULL AND deleted_at IS NULL AND user_id IS NOT NULL
+            """
+        )
+
+        cursor = await conn.execute("PRAGMA table_info(contexts)")
+        context_cols = {str(row[1]) for row in await cursor.fetchall()}
+        await cursor.close()
+        if "user_id" not in context_cols:
+            await conn.execute("PRAGMA foreign_keys=OFF")
+            await conn.execute("BEGIN IMMEDIATE")
+            try:
+                await conn.execute(
+                    """
+                    CREATE TABLE contexts_new (
+                      id TEXT PRIMARY KEY,
+                      user_id TEXT,
+                      slug TEXT NOT NULL,
+                      name TEXT NOT NULL,
+                      color TEXT NOT NULL,
+                      icon TEXT,
+                      sort_order INTEGER NOT NULL,
+                      created_at TEXT NOT NULL,
+                      updated_at TEXT NOT NULL,
+                      CHECK (length(trim(name)) > 0),
+                      CHECK (color GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'),
+                      UNIQUE (user_id, slug),
+                      UNIQUE (user_id, sort_order)
+                    )
+                    """
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO contexts_new (id, user_id, slug, name, color, icon, sort_order, created_at, updated_at)
+                    SELECT id, NULL, slug, name, color, icon, sort_order, created_at, updated_at FROM contexts
+                    """
+                )
+                await conn.execute("DROP TABLE contexts")
+                await conn.execute("ALTER TABLE contexts_new RENAME TO contexts")
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+            finally:
+                await conn.execute("PRAGMA foreign_keys=ON")
 
     async def _apply_timezone(self) -> None:
         if not self.user_timezone or self.user_timezone == DEFAULT_TIMEZONE:

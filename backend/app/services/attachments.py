@@ -31,13 +31,14 @@ def _filename(name: str, content_type: str) -> str:
 
 async def add_attachment(
     db: Database,
+    user_id: str,
     item_id: str,
     *,
     filename: str,
     content_type: str,
     data: bytes,
 ) -> AttachmentMeta:
-    await get_item(db, item_id)
+    await get_item(db, user_id, item_id)
     if content_type not in ALLOWED:
         raise AppError(415, "Attach an image or a PDF", "unsupported_type")
     if len(data) > MAX_BYTES:
@@ -64,8 +65,8 @@ async def add_attachment(
     )
 
 
-async def list_attachments(db: Database, item_id: str) -> list[AttachmentMeta]:
-    await get_item(db, item_id)
+async def list_attachments(db: Database, user_id: str, item_id: str) -> list[AttachmentMeta]:
+    await get_item(db, user_id, item_id)
     rows = await db.fetchall(
         """
         SELECT id, item_id, filename, content_type, size, created_at
@@ -76,7 +77,10 @@ async def list_attachments(db: Database, item_id: str) -> list[AttachmentMeta]:
     return [AttachmentMeta(**dict(row)) for row in rows]
 
 
-async def read_attachment(db: Database, item_id: str, attachment_id: str) -> tuple[AttachmentMeta, bytes]:
+async def read_attachment(
+    db: Database, user_id: str, item_id: str, attachment_id: str
+) -> tuple[AttachmentMeta, bytes]:
+    await get_item(db, user_id, item_id)
     row = await db.fetchone(
         """
         SELECT id, item_id, filename, content_type, size, created_at, data
@@ -97,7 +101,8 @@ async def read_attachment(db: Database, item_id: str, attachment_id: str) -> tup
     return meta, bytes(row["data"])
 
 
-async def delete_attachment(db: Database, item_id: str, attachment_id: str) -> None:
+async def delete_attachment(db: Database, user_id: str, item_id: str, attachment_id: str) -> None:
+    await get_item(db, user_id, item_id)
     row = await db.fetchone(
         "SELECT id FROM attachments WHERE id = ? AND item_id = ?",
         (attachment_id, item_id),

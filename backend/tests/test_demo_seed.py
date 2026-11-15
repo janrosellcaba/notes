@@ -1,33 +1,45 @@
-"""Demo login and bulk seed for local/VPS exploration."""
+"""Demo login and bulk seed stay isolated per user."""
+
+from httpx import AsyncClient
 
 from app.demo_seed import ensure_test_user, seed_workspace
 from app.security import verify_password
+from tests.helpers import ADMIN_USERNAME, ADMIN_PASSWORD
 
 
-async def test_demo_seed_creates_test_user_and_fills_the_workspace(client: tuple[object, object]) -> None:
-    app, _http = client
+async def test_demo_seed_stays_on_the_test_user(client: tuple[object, AsyncClient]) -> None:
+    app, http = client
     db = app.state.db
-    await ensure_test_user(db)
-    row = await db.fetchone("SELECT username, password_hash FROM users WHERE username = ?", ("test",))
+    test_id = await ensure_test_user(db)
+    row = await db.fetchone("SELECT username, password_hash FROM users WHERE id = ?", (test_id,))
     assert row is not None
     assert verify_password(str(row["password_hash"]), "test")
 
-    await seed_workspace(db)
-    projects = await db.fetchone("SELECT COUNT(*) AS n FROM projects WHERE archived_at IS NULL")
-    notes = await db.fetchone("SELECT COUNT(*) AS n FROM items WHERE type = 'note' AND deleted_at IS NULL")
-    tasks = await db.fetchone("SELECT COUNT(*) AS n FROM items WHERE type = 'task' AND deleted_at IS NULL")
-    meetings = await db.fetchone(
-        "SELECT COUNT(*) AS n FROM items WHERE type = 'meeting' AND deleted_at IS NULL"
+    await seed_workspace(db, test_id)
+    test_projects = await db.fetchone(
+        "SELECT COUNT(*) AS n FROM projects WHERE user_id = ? AND archived_at IS NULL",
+        (test_id,),
     )
-    dailies = await db.fetchone(
-        "SELECT COUNT(*) AS n FROM items WHERE daily_on IS NOT NULL AND deleted_at IS NULL"
+    admin = await db.fetchone("SELECT id FROM users WHERE username = ?", ("jan",))
+    assert admin is not None
+    admin_projects = await db.fetchone(
+        "SELECT COUNT(*) AS n FROM projects WHERE user_id = ?",
+        (admin["id"],),
     )
-    assert int(projects["n"]) >= 10
-    assert int(notes["n"]) >= 40
-    assert int(tasks["n"]) >= 60
-    assert int(meetings["n"]) >= 20
-    assert int(dailies["n"]) >= 30
+    assert int(test_projects["n"]) >= 10
+    assert int(admin_projects["n"]) == 0
 
-    await seed_workspace(db)
-    again = await db.fetchone("SELECT COUNT(*) AS n FROM projects WHERE archived_at IS NULL")
-    assert int(again["n"]) == int(projects["n"])
+    login = await http.post("/api/auth/login", json={"username": "test", "password": "test"})
+    assert login.status_code == 200
+    listed = await http.get("/api/projects")
+    assert listed.status_code == 200
+    assert len(listed.json()["projects"]) >= 10
+
+    await http.post("/api/auth/logout")
+    admin_login = await http.post(
+        "/api/auth/login",
+        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+    )
+    assert admin_login.status_code == 200
+    admin_listed = await http.get("/api/projects")
+    assert admin_listed.json()["projects"] == []

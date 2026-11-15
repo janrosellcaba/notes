@@ -20,11 +20,11 @@ END
 """
 
 
-async def home_feed(db: Database, *, context_id: str | None, today: str) -> HomeFeed:
+async def home_feed(db: Database, user_id: str, *, context_id: str | None, today: str) -> HomeFeed:
     if not _valid_day(today):
         field_error("today", "today must be YYYY-MM-DD")
     if context_id is not None:
-        await require_context(db, context_id)
+        await require_context(db, user_id, context_id)
     context_sql = ""
     context_params: tuple[str, ...] = ()
     if context_id is not None:
@@ -33,28 +33,29 @@ async def home_feed(db: Database, *, context_id: str | None, today: str) -> Home
     count = await db.fetchone(
         """
         SELECT COUNT(*) AS n FROM items
-        WHERE project_id IS NULL AND context_id IS NULL AND due_on IS NULL AND daily_on IS NULL
+        WHERE user_id = ? AND project_id IS NULL AND context_id IS NULL AND due_on IS NULL AND daily_on IS NULL
           AND archived_at IS NULL AND deleted_at IS NULL
-        """
+        """,
+        (user_id,),
     )
     pinned_rows = await db.fetchall(
         f"""
         SELECT {_COLUMNS} {_FROM}
-        WHERE i.pinned = 1 AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.type IN ('note', 'meeting')
+        WHERE i.user_id = ? AND i.pinned = 1 AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.type IN ('note', 'meeting')
           {context_sql}
         ORDER BY i.updated_at DESC
         LIMIT 24
         """,
-        context_params,
+        (user_id, *context_params),
     )
     task_rows = await db.fetchall(
         f"""
         SELECT {_COLUMNS} {_FROM}
-        WHERE i.type = 'task' AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.due_on = ? AND i.status != 'done'
+        WHERE i.user_id = ? AND i.type = 'task' AND i.archived_at IS NULL AND i.deleted_at IS NULL AND i.due_on = ? AND i.status != 'done'
           {context_sql}
         ORDER BY {_PRIORITY}, i.position ASC
         """,
-        (today, *context_params),
+        (user_id, today, *context_params),
     )
     pinned: list[Item] = [to_item(row) for row in pinned_rows]
     tasks: list[Item] = [to_item(row) for row in task_rows]

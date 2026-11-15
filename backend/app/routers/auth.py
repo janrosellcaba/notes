@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from starlette.responses import Response
 
 from app.db import Database
-from app.deps import get_current_user
+from app.deps import CurrentUser, get_current_user
 from app.errors import AppError
 from app.schemas.auth import AuthUser, LoginRequest, PasswordChangeRequest, RegisterRequest
 from app.security import (
@@ -102,16 +102,20 @@ async def register(body: RegisterRequest, request: Request, response: Response) 
         raise AppError(409, "That username is taken", "username_taken")
 
     password_hash = await asyncio.to_thread(hash_password, body.password)
+    user_id = str(uuid4())
     try:
         await database.execute(
             """
             INSERT INTO users (id, username, password_hash, session_version, created_at)
             VALUES (?, ?, ?, 1, ?)
             """,
-            (str(uuid4()), body.username, password_hash, _now()),
+            (user_id, body.username, password_hash, _now()),
         )
     except sqlite3.IntegrityError as exc:
         raise AppError(409, "That username is taken", "username_taken") from exc
+    from app import tenancy
+
+    await tenancy.ensure_user_contexts(database, user_id)
     return _issue(request, response, body.username, 1)
 
 
@@ -120,12 +124,12 @@ async def change_password(
     body: PasswordChangeRequest,
     request: Request,
     response: Response,
-    username: str = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> AuthUser:
     database: Database = request.app.state.db
     row = await database.fetchone(
-        "SELECT password_hash, session_version FROM users WHERE username = ?",
-        (username,),
+        "SELECT password_hash, session_version FROM users WHERE id = ?",
+        (user.id,),
     )
     if row is None:
         raise AppError(401, "Unauthenticated", "unauthenticated")
@@ -135,15 +139,15 @@ async def change_password(
     password_hash = await asyncio.to_thread(hash_password, body.new_password)
     session_version = int(row["session_version"]) + 1
     await database.execute(
-        "UPDATE users SET password_hash = ?, session_version = ? WHERE username = ?",
-        (password_hash, session_version, username),
+        "UPDATE users SET password_hash = ?, session_version = ? WHERE id = ?",
+        (password_hash, session_version, user.id),
     )
-    return _issue(request, response, username, session_version)
+    return _issue(request, response, user.username, session_version)
 
 
 @router.get("/me", response_model=AuthUser)
-async def me(username: str = Depends(get_current_user)) -> AuthUser:
-    return AuthUser(username=username)
+async def me(user: CurrentUser = Depends(get_current_user)) -> AuthUser:
+    return AuthUser(username=user.username)
 
 
 @router.post("/logout", status_code=204)

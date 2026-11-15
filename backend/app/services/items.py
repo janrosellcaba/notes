@@ -154,8 +154,8 @@ def to_item(row: Any) -> Item:
     )
 
 
-async def get_item(db: Reader, item_id: str) -> Item:
-    row = await db.fetchone(f"SELECT {_COLUMNS} {_FROM} WHERE i.id = ?", (item_id,))
+async def get_item(db: Reader, user_id: str, item_id: str) -> Item:
+    row = await db.fetchone(f"SELECT {_COLUMNS} {_FROM} WHERE i.id = ? AND i.user_id = ?", (item_id, user_id))
     if row is None:
         raise AppError(404, "Item not found", "not_found")
     return to_item(row)
@@ -189,6 +189,7 @@ def _sort_mode(project_id: str | None, pinned: bool | None, due: str | None) -> 
 
 async def list_items(
     db: Database,
+    user_id: str,
     *,
     type: str | None,
     project_id: str | None,
@@ -206,16 +207,16 @@ async def list_items(
     roots: bool = False,
 ) -> tuple[list[Item], str | None]:
     if context_id is not None:
-        await require_context(db, context_id)
+        await require_context(db, user_id, context_id)
     if today is not None and not _valid_day(today):
         field_error("today", "today must be YYYY-MM-DD")
     if due in ("overdue", "today", "upcoming") and today is None:
         field_error("today", "today must be YYYY-MM-DD")
 
-    clauses = ["i.deleted_at IS NOT NULL" if trashed else "i.deleted_at IS NULL"]
+    clauses = ["i.user_id = ?", "i.deleted_at IS NOT NULL" if trashed else "i.deleted_at IS NULL"]
     if not trashed:
         clauses.append("i.archived_at IS NOT NULL" if archived else "i.archived_at IS NULL")
-    params: list[Any] = []
+    params: list[Any] = [user_id]
     if type is not None:
         clauses.append("i.type = ?")
         params.append(type)
@@ -307,14 +308,14 @@ async def list_items(
     return [to_item(row) for row in page], next_cursor
 
 
-async def _next_position(tx: Reader, project_id: str | None, status: str) -> float:
+async def _next_position(tx: Reader, user_id: str, project_id: str | None, status: str) -> float:
     row = await tx.fetchone(
         f"""
         SELECT COALESCE(MAX(position), 0) + 1024 AS pos
         FROM items
-        WHERE type = 'task' AND status = ? AND {_SAME_PROJECT}
+        WHERE user_id = ? AND type = 'task' AND status = ? AND {_SAME_PROJECT}
         """,
-        (status, project_id, project_id),
+        (user_id, status, project_id, project_id),
     )
     assert row is not None
     return float(row["pos"])
@@ -329,14 +330,14 @@ def _assignee(value: str | None) -> str | None:
     return cleaned or None
 
 
-async def _check_parent(db: Reader, parent_id: str | None, *, child_id: str | None) -> None:
+async def _check_parent(db: Reader, user_id: str, parent_id: str | None, *, child_id: str | None) -> None:
     if parent_id is None:
         return
     if child_id is not None and parent_id == child_id:
         field_error("parent_id", "A task cannot be its own parent")
     row = await db.fetchone(
-        "SELECT type, parent_id, deleted_at, archived_at FROM items WHERE id = ?",
-        (parent_id,),
+        "SELECT type, parent_id, deleted_at, archived_at FROM items WHERE id = ? AND user_id = ?",
+        (parent_id, user_id),
     )
     if (
         row is None
@@ -350,8 +351,8 @@ async def _check_parent(db: Reader, parent_id: str | None, *, child_id: str | No
     if child_id is None:
         return
     child = await db.fetchone(
-        "SELECT id FROM items WHERE parent_id = ? AND deleted_at IS NULL LIMIT 1",
-        (child_id,),
+        "SELECT id FROM items WHERE parent_id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+        (child_id, user_id),
     )
     if child is not None:
         field_error("parent_id", "Move its subtasks first")
@@ -452,6 +453,7 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
 
 async def create_item(
     db: Database,
+    user_id: str,
     body: ItemCreate,
     *,
     idempotency_key: str | None,
@@ -474,28 +476,29 @@ async def create_item(
                         "Idempotency key was reused with a different request body",
                         "idempotency_conflict",
                     )
-                return await get_item(tx, existing["item_id"]), False
+                return await get_item(tx, user_id, existing["item_id"]), False
         if prepared["project_id"] is not None:
-            await require_active_project(tx, prepared["project_id"])
+            await require_active_project(tx, user_id, prepared["project_id"])
         elif prepared["context_id"] is not None:
-            await require_context(tx, prepared["context_id"])
+            await require_context(tx, user_id, prepared["context_id"])
         if prepared["parent_id"] is not None:
-            await _check_parent(tx, prepared["parent_id"], child_id=None)
+            await _check_parent(tx, user_id, prepared["parent_id"], child_id=None)
         if prepared["type"] == "task":
-            prepared["position"] = await _next_position(tx, prepared["project_id"], prepared["status"])
+            prepared["position"] = await _next_position(tx, user_id, prepared["project_id"], prepared["status"])
         now = utc_now()
         item_id = str(uuid4())
         completed = now if prepared["status"] == "done" else None
         await tx.execute(
             """
             INSERT INTO items (
-              id, type, title, body_md, project_id, context_id, status, priority, due_on, completed_at,
+              id, user_id, type, title, body_md, project_id, context_id, status, priority, due_on, completed_at,
               position, pinned, transcript_raw, external_url, recurrence, recurrence_weekday,
               recurrence_monthday, parent_id, starts_on, assignee, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item_id,
+                user_id,
                 prepared["type"],
                 prepared["title"],
                 prepared["body_md"],
@@ -527,7 +530,7 @@ async def create_item(
                 """,
                 (key, item_id, digest, now),
             )
-        return await get_item(tx, item_id), True
+        return await get_item(tx, user_id, item_id), True
 
 
 def _completed_at(current_status: str | None, new_status: str, current: str | None, now: str) -> str | None:
@@ -536,8 +539,8 @@ def _completed_at(current_status: str | None, new_status: str, current: str | No
     return None
 
 
-async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> Item:
-    current = await get_item(db, item_id)
+async def update_item(db: Database, user_id: str, item_id: str, changes: dict[str, Any]) -> Item:
+    current = await get_item(db, user_id, item_id)
     if not changes:
         return current
     for field in ("title", "body_md", "pinned"):
@@ -566,12 +569,12 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
         own_context = None if current.project is not None or current.context is None else current.context.id
         context_id = changes["context_id"] if "context_id" in changes else own_context
         if project_id is not None:
-            await require_active_project(db, project_id)
+            await require_active_project(db, user_id, project_id)
             sets["project_id"] = project_id
             sets["context_id"] = None
         else:
             if context_id is not None:
-                await require_context(db, context_id)
+                await require_context(db, user_id, context_id)
             sets["project_id"] = None
             sets["context_id"] = context_id
     if "external_url" in changes:
@@ -623,7 +626,7 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
                 field_error("parent_id", "Only tasks can have a parent")
         else:
             parent_id = _blank(changes["parent_id"])
-            await _check_parent(db, parent_id, child_id=item_id)
+            await _check_parent(db, user_id, parent_id, child_id=item_id)
             sets["parent_id"] = parent_id
     if "pinned" in changes:
         if current.type == "task" and changes["pinned"]:
@@ -653,13 +656,13 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
     sets["updated_at"] = utc_now()
     assignments = ", ".join(f"{column} = ?" for column in sets)
     await db.execute(
-        f"UPDATE items SET {assignments} WHERE id = ?",
-        [*sets.values(), item_id],
+        f"UPDATE items SET {assignments} WHERE id = ? AND user_id = ?",
+        [*sets.values(), item_id, user_id],
     )
-    updated = await get_item(db, item_id)
+    updated = await get_item(db, user_id, item_id)
     became_done = current.status != "done" and updated.status == "done" and updated.recurrence in ("weekly", "monthly")
     if became_done:
-        await _spawn_next(db, updated)
+        await _spawn_next(db, user_id, updated)
     return updated
 
 
@@ -680,31 +683,32 @@ def _next_due(item: Item) -> str:
     return datetime(year, month, min(day, last)).date().isoformat()
 
 
-async def _spawn_next(db: Database, item: Item) -> None:
+async def _spawn_next(db: Database, user_id: str, item: Item) -> None:
     due = _next_due(item)
     project_id = None if item.project is None else item.project.id
     existing = await db.fetchone(
         f"""
         SELECT id FROM items
-        WHERE type = 'task' AND title = ? AND due_on = ? AND recurrence = ?
+        WHERE user_id = ? AND type = 'task' AND title = ? AND due_on = ? AND recurrence = ?
           AND deleted_at IS NULL AND status != 'done' AND {_SAME_PROJECT}
         """,
-        (item.title, due, item.recurrence, project_id, project_id),
+        (user_id, item.title, due, item.recurrence, project_id, project_id),
     )
     if existing is not None:
         return
-    position = await _next_position(db, project_id, "todo")
+    position = await _next_position(db, user_id, project_id, "todo")
     now = utc_now()
     context_id = None if item.project is not None or item.context is None else item.context.id
     await db.execute(
         """
         INSERT INTO items (
-          id, type, title, body_md, project_id, context_id, status, priority, due_on, position, pinned,
+          id, user_id, type, title, body_md, project_id, context_id, status, priority, due_on, position, pinned,
           recurrence, recurrence_weekday, recurrence_monthday, parent_id, assignee, created_at, updated_at
-        ) VALUES (?, 'task', ?, ?, ?, ?, 'todo', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, 'task', ?, ?, ?, ?, 'todo', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             str(uuid4()),
+            user_id,
             item.title,
             item.body_md,
             project_id,
@@ -723,34 +727,34 @@ async def _spawn_next(db: Database, item: Item) -> None:
     )
 
 
-async def delete_item(db: Database, item_id: str) -> None:
-    await get_item(db, item_id)
+async def delete_item(db: Database, user_id: str, item_id: str) -> None:
+    await get_item(db, user_id, item_id)
     await db.execute(
-        "UPDATE items SET deleted_at = ?, daily_on = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-        (utc_now(), utc_now(), item_id),
+        "UPDATE items SET deleted_at = ?, daily_on = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+        (utc_now(), utc_now(), item_id, user_id),
     )
 
 
-async def restore_item(db: Database, item_id: str) -> Item:
-    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ?", (item_id,))
+async def restore_item(db: Database, user_id: str, item_id: str) -> Item:
+    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     if row is None:
         raise AppError(404, "Item not found", "not_found")
     if row["deleted_at"] is None:
-        return await get_item(db, item_id)
+        return await get_item(db, user_id, item_id)
     await db.execute(
-        "UPDATE items SET deleted_at = NULL, updated_at = ? WHERE id = ?",
-        (utc_now(), item_id),
+        "UPDATE items SET deleted_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?",
+        (utc_now(), item_id, user_id),
     )
-    return await get_item(db, item_id)
+    return await get_item(db, user_id, item_id)
 
 
-async def purge_item(db: Database, item_id: str) -> None:
-    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ?", (item_id,))
+async def purge_item(db: Database, user_id: str, item_id: str) -> None:
+    row = await db.fetchone("SELECT deleted_at FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
     if row is None:
         raise AppError(404, "Item not found", "not_found")
     if row["deleted_at"] is None:
         raise AppError(409, "Move the item to trash before deleting it", "not_trashed")
-    await db.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    await db.execute("DELETE FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
 
 
 async def purge_expired_trash(db: Database, *, days: int = 30) -> None:
@@ -758,32 +762,32 @@ async def purge_expired_trash(db: Database, *, days: int = 30) -> None:
     await db.execute("DELETE FROM items WHERE deleted_at IS NOT NULL AND deleted_at < ?", (cutoff,))
 
 
-async def lookup_title(db: Database, title: str) -> Item:
+async def lookup_title(db: Database, user_id: str, title: str) -> Item:
     cleaned = title.strip()
     if not cleaned:
         field_error("title", "Title is empty")
     row = await db.fetchone(
-        f"SELECT {_COLUMNS} {_FROM} WHERE i.deleted_at IS NULL AND i.title = ? ORDER BY i.updated_at DESC LIMIT 1",
-        (cleaned,),
+        f"SELECT {_COLUMNS} {_FROM} WHERE i.user_id = ? AND i.deleted_at IS NULL AND i.title = ? ORDER BY i.updated_at DESC LIMIT 1",
+        (user_id, cleaned),
     )
     if row is None:
         raise AppError(404, "No note with that title", "not_found")
     return to_item(row)
 
 
-async def _daily_by_day(db: Reader, day: str) -> Item | None:
+async def _daily_by_day(db: Reader, user_id: str, day: str) -> Item | None:
     row = await db.fetchone(
-        f"SELECT {_COLUMNS} {_FROM} WHERE i.daily_on = ? AND i.deleted_at IS NULL",
-        (day,),
+        f"SELECT {_COLUMNS} {_FROM} WHERE i.user_id = ? AND i.daily_on = ? AND i.deleted_at IS NULL",
+        (user_id, day),
     )
     return None if row is None else to_item(row)
 
 
-async def ensure_daily(db: Database, day: str) -> tuple[Item, bool]:
+async def ensure_daily(db: Database, user_id: str, day: str) -> tuple[Item, bool]:
     """Return the note for a calendar day, creating an empty one when needed."""
     if not _valid_day(day):
         field_error("day", "day must be YYYY-MM-DD")
-    existing = await _daily_by_day(db, day)
+    existing = await _daily_by_day(db, user_id, day)
     if existing is not None:
         return existing, False
     now = utc_now()
@@ -793,15 +797,15 @@ async def ensure_daily(db: Database, day: str) -> tuple[Item, bool]:
             await tx.execute(
                 """
                 INSERT INTO items (
-                  id, type, title, body_md, project_id, context_id, status, priority, due_on,
+                  id, user_id, type, title, body_md, project_id, context_id, status, priority, due_on,
                   position, pinned, transcript_raw, external_url, daily_on, created_at, updated_at
-                ) VALUES (?, 'note', ?, '', NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, ?, ?, ?)
+                ) VALUES (?, ?, 'note', ?, '', NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, ?, ?, ?)
                 """,
-                (item_id, day, day, now, now),
+                (item_id, user_id, day, day, now, now),
             )
-            return await get_item(tx, item_id), True
+            return await get_item(tx, user_id, item_id), True
     except sqlite3.IntegrityError:
-        raced = await _daily_by_day(db, day)
+        raced = await _daily_by_day(db, user_id, day)
         if raced is not None:
             return raced, False
         raise
@@ -811,8 +815,8 @@ def _like_literal(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-async def backlinks(db: Database, item_id: str) -> list[Item]:
-    item = await get_item(db, item_id)
+async def backlinks(db: Database, user_id: str, item_id: str) -> list[Item]:
+    item = await get_item(db, user_id, item_id)
     title = item.title.strip()
     if not title:
         return []
@@ -820,22 +824,22 @@ async def backlinks(db: Database, item_id: str) -> list[Item]:
     rows = await db.fetchall(
         f"""
         SELECT {_COLUMNS} {_FROM}
-        WHERE i.id != ? AND i.deleted_at IS NULL AND i.body_md LIKE ? ESCAPE '\\'
+        WHERE i.user_id = ? AND i.id != ? AND i.deleted_at IS NULL AND i.body_md LIKE ? ESCAPE '\\'
         ORDER BY i.updated_at DESC
         LIMIT 50
         """,
-        (item_id, needle),
+        (user_id, item_id, needle),
     )
     return [to_item(row) for row in rows]
 
 
-async def set_archived(db: Database, item_id: str, *, archived: bool) -> Item:
-    await get_item(db, item_id)
+async def set_archived(db: Database, user_id: str, item_id: str, *, archived: bool) -> Item:
+    await get_item(db, user_id, item_id)
     await db.execute(
-        "UPDATE items SET archived_at = ?, updated_at = ? WHERE id = ?",
-        (utc_now() if archived else None, utc_now(), item_id),
+        "UPDATE items SET archived_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        (utc_now() if archived else None, utc_now(), item_id, user_id),
     )
-    return await get_item(db, item_id)
+    return await get_item(db, user_id, item_id)
 
 
 def _task_title_from_body(body: str) -> str:
@@ -846,52 +850,53 @@ def _task_title_from_body(body: str) -> str:
     return "Untitled"
 
 
-async def convert_to_task(db: Database, item_id: str) -> Item:
+async def convert_to_task(db: Database, user_id: str, item_id: str) -> Item:
     async with db.transaction() as tx:
-        row = await tx.fetchone("SELECT * FROM items WHERE id = ?", (item_id,))
+        row = await tx.fetchone("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
         if row is None:
             raise AppError(404, "Item not found", "not_found")
         if row["type"] != "note" or row["archived_at"] is not None:
             raise AppError(409, "Only an active note can be converted", "not_a_note")
         title = row["title"] if str(row["title"]).strip() else _task_title_from_body(row["body_md"])
-        position = await _next_position(tx, row["project_id"], "todo")
+        position = await _next_position(tx, user_id, row["project_id"], "todo")
         now = utc_now()
         await tx.execute(
             """
             UPDATE items
             SET type = 'task', title = ?, status = 'todo', priority = 'none',
                 position = ?, pinned = 0, daily_on = NULL, completed_at = NULL, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (title, position, now, item_id),
+            (title, position, now, item_id, user_id),
         )
-        return await get_item(tx, item_id)
+        return await get_item(tx, user_id, item_id)
 
 
-async def extract_task(db: Database, item_id: str, body: ExtractTask) -> Item:
+async def extract_task(db: Database, user_id: str, item_id: str, body: ExtractTask) -> Item:
     _limit_text("title", body.title, TITLE_MAX)
     if body.selection is not None and len(body.selection) > SELECTION_MAX:
         field_error("selection", f"selection exceeds {SELECTION_MAX} characters")
     if not body.title.strip():
         field_error("title", "Tasks require a title")
     async with db.transaction() as tx:
-        source = await tx.fetchone("SELECT * FROM items WHERE id = ?", (item_id,))
+        source = await tx.fetchone("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
         if source is None:
             raise AppError(404, "Item not found", "not_found")
         if source["type"] not in ("note", "meeting") or source["archived_at"] is not None:
             raise AppError(409, "Tasks can only be extracted from an active note or meeting", "invalid_source")
-        position = await _next_position(tx, source["project_id"], "todo")
+        position = await _next_position(tx, user_id, source["project_id"], "todo")
         now = utc_now()
         created_id = str(uuid4())
         await tx.execute(
             """
             INSERT INTO items (
-              id, type, title, body_md, project_id, status, priority, position,
+              id, user_id, type, title, body_md, project_id, status, priority, position,
               pinned, source_item_id, source_selection, created_at, updated_at
-            ) VALUES (?, 'task', ?, '', ?, 'todo', 'none', ?, 0, ?, ?, ?, ?)
+            ) VALUES (?, ?, 'task', ?, '', ?, 'todo', 'none', ?, 0, ?, ?, ?, ?)
             """,
             (
                 created_id,
+                user_id,
                 body.title.strip(),
                 source["project_id"],
                 position,
@@ -901,13 +906,25 @@ async def extract_task(db: Database, item_id: str, body: ExtractTask) -> Item:
                 now,
             ),
         )
-        return await get_item(tx, created_id)
+        return await get_item(tx, user_id, created_id)
 
 
-async def _neighbor(tx: Transaction, neighbor_id: str, *, field: str, status: str, project_id: str | None, item_id: str) -> Any:
+async def _neighbor(
+    tx: Transaction,
+    user_id: str,
+    neighbor_id: str,
+    *,
+    field: str,
+    status: str,
+    project_id: str | None,
+    item_id: str,
+) -> Any:
     if neighbor_id == item_id:
         field_error(field, "A card cannot be its own neighbor")
-    row = await tx.fetchone("SELECT * FROM items WHERE id = ?", (neighbor_id,))
+    row = await tx.fetchone(
+        "SELECT * FROM items WHERE id = ? AND user_id = ?",
+        (neighbor_id, user_id),
+    )
     if row is None or row["type"] != "task" or row["archived_at"] is not None:
         field_error(field, "Neighbor must be an active task in the destination column")
     if row["status"] != status or (row["project_id"] or None) != project_id:
@@ -917,6 +934,7 @@ async def _neighbor(tx: Transaction, neighbor_id: str, *, field: str, status: st
 
 async def _renumber(
     tx: Transaction,
+    user_id: str,
     *,
     item_id: str,
     status: str,
@@ -927,11 +945,11 @@ async def _renumber(
     rows = await tx.fetchall(
         f"""
         SELECT id FROM items
-        WHERE type = 'task' AND status = ? AND archived_at IS NULL AND id != ?
+        WHERE user_id = ? AND type = 'task' AND status = ? AND archived_at IS NULL AND id != ?
           AND {_SAME_PROJECT}
         ORDER BY position ASC, created_at ASC, id ASC
         """,
-        (status, item_id, project_id, project_id),
+        (user_id, status, item_id, project_id, project_id),
     )
     ids = [row["id"] for row in rows]
     if before_id is not None and before_id in ids:
@@ -946,6 +964,7 @@ async def _renumber(
 
 async def move_item(
     db: Database,
+    user_id: str,
     item_id: str,
     *,
     status: ItemStatus,
@@ -953,7 +972,7 @@ async def move_item(
     after_id: str | None,
 ) -> Item:
     async with db.transaction() as tx:
-        row = await tx.fetchone("SELECT * FROM items WHERE id = ?", (item_id,))
+        row = await tx.fetchone("SELECT * FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
         if row is None:
             raise AppError(404, "Item not found", "not_found")
         if row["type"] != "task":
@@ -965,11 +984,23 @@ async def move_item(
         after = None
         if before_id is not None:
             before = await _neighbor(
-                tx, before_id, field="before_id", status=status, project_id=project_id, item_id=item_id
+                tx,
+                user_id,
+                before_id,
+                field="before_id",
+                status=status,
+                project_id=project_id,
+                item_id=item_id,
             )
         if after_id is not None:
             after = await _neighbor(
-                tx, after_id, field="after_id", status=status, project_id=project_id, item_id=item_id
+                tx,
+                user_id,
+                after_id,
+                field="after_id",
+                status=status,
+                project_id=project_id,
+                item_id=item_id,
             )
         renumbered = False
         position: float | None
@@ -978,6 +1009,7 @@ async def move_item(
             if gap < 1e-6:
                 await _renumber(
                     tx,
+                    user_id,
                     item_id=item_id,
                     status=status,
                     project_id=project_id,
@@ -993,7 +1025,7 @@ async def move_item(
         elif after is not None:
             position = float(after["position"]) - 1024
         else:
-            position = await _next_position_excluding(tx, project_id, status, item_id)
+            position = await _next_position_excluding(tx, user_id, project_id, status, item_id)
         now = utc_now()
         completed = _completed_at(row["status"], status, row["completed_at"], now)
         if renumbered:
@@ -1001,30 +1033,32 @@ async def move_item(
                 """
                 UPDATE items
                 SET status = ?, completed_at = ?, updated_at = ?
-                WHERE id = ?
+                WHERE id = ? AND user_id = ?
                 """,
-                (status, completed, now, item_id),
+                (status, completed, now, item_id, user_id),
             )
         else:
             await tx.execute(
                 """
                 UPDATE items
                 SET status = ?, position = ?, completed_at = ?, updated_at = ?
-                WHERE id = ?
+                WHERE id = ? AND user_id = ?
                 """,
-                (status, position, completed, now, item_id),
+                (status, position, completed, now, item_id, user_id),
             )
-        return await get_item(tx, item_id)
+        return await get_item(tx, user_id, item_id)
 
 
-async def _next_position_excluding(tx: Transaction, project_id: str | None, status: str, item_id: str) -> float:
+async def _next_position_excluding(
+    tx: Transaction, user_id: str, project_id: str | None, status: str, item_id: str
+) -> float:
     row = await tx.fetchone(
         f"""
         SELECT COALESCE(MAX(position), 0) + 1024 AS pos
         FROM items
-        WHERE type = 'task' AND status = ? AND id != ? AND {_SAME_PROJECT}
+        WHERE user_id = ? AND type = 'task' AND status = ? AND id != ? AND {_SAME_PROJECT}
         """,
-        (status, item_id, project_id, project_id),
+        (user_id, status, item_id, project_id, project_id),
     )
     assert row is not None
     return float(row["pos"])

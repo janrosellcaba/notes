@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.db import Database
-from app.deps import get_current_user, get_db
+from app.deps import CurrentUser, get_current_user, get_db
 from app.schemas.search import SearchResults
 from app.services import search
 
@@ -15,6 +15,9 @@ async def search_items(
     q: str = Query(min_length=1),
     context_id: str | None = None,
     limit: int = Query(default=20, ge=1, le=50),
+    user: CurrentUser = Depends(get_current_user),
     db: Database = Depends(get_db),
 ) -> SearchResults:
-    return SearchResults(results=await search.search_items(db, query=q, context_id=context_id, limit=limit))
+    return SearchResults(
+        results=await search.search_items(db, user.id, query=q, context_id=context_id, limit=limit)
+    )

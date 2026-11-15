@@ -20,19 +20,21 @@ def _pinned(value: Any) -> bool:
     return bool(value)
 
 
-async def export_json(db: Database) -> tuple[dict[str, Any], str]:
+async def export_json(db: Database, user_id: str) -> tuple[dict[str, Any], str]:
     timezone = await db.fetchone("SELECT value FROM app_meta WHERE key = 'timezone'")
     contexts = await db.fetchall(
         """
         SELECT id, slug, name, color, icon, sort_order, created_at, updated_at
-        FROM contexts ORDER BY sort_order
-        """
+        FROM contexts WHERE user_id = ? ORDER BY sort_order
+        """,
+        (user_id,),
     )
     projects = await db.fetchall(
         """
         SELECT id, context_id, name, color AS color_override, archived_at, created_at, updated_at
-        FROM projects ORDER BY created_at, id
-        """
+        FROM projects WHERE user_id = ? ORDER BY created_at, id
+        """,
+        (user_id,),
     )
     items = await db.fetchall(
         """
@@ -41,14 +43,19 @@ async def export_json(db: Database) -> tuple[dict[str, Any], str]:
                calendar_provider, external_url, source_item_id, source_selection, archived_at,
                deleted_at, daily_on, recurrence, recurrence_weekday, recurrence_monthday,
                parent_id, starts_on, assignee, created_at, updated_at
-        FROM items ORDER BY created_at, id
-        """
+        FROM items WHERE user_id = ? ORDER BY created_at, id
+        """,
+        (user_id,),
     )
     attachments = await db.fetchall(
         """
-        SELECT id, item_id, filename, content_type, size, created_at, data
-        FROM attachments ORDER BY created_at, id
-        """
+        SELECT a.id, a.item_id, a.filename, a.content_type, a.size, a.created_at, a.data
+        FROM attachments a
+        JOIN items i ON i.id = a.item_id
+        WHERE i.user_id = ?
+        ORDER BY a.created_at, a.id
+        """,
+        (user_id,),
     )
     payload = {
         "exported_at": utc_now(),

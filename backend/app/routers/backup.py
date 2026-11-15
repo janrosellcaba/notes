@@ -4,15 +4,18 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.db import Database
-from app.deps import get_current_user, get_db
+from app.deps import CurrentUser, get_current_user, get_db
 from app.services import backup
 
 router = APIRouter(prefix="/api/backup", tags=["backup"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/json")
-async def download_json(db: Database = Depends(get_db)) -> JSONResponse:
-    payload, filename = await backup.export_json(db)
+async def download_json(
+    user: CurrentUser = Depends(get_current_user),
+    db: Database = Depends(get_db),
+) -> JSONResponse:
+    payload, filename = await backup.export_json(db, user.id)
     return JSONResponse(
         content=payload,
         headers={
