@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useI18n } from "../../lib/i18n";
 import { Popover } from "../ui/Popover";
 import type { Project } from "../../types/api";
 
@@ -13,8 +14,9 @@ export function ProjectPill({
   onChange: (projectId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
   const current = projects.find((project) => project.id === projectId);
-  const label = current ? current.name : "Inbox";
+  const label = current ? current.name : t("inbox.title");
   return (
     <Popover
       open={open}
@@ -40,7 +42,7 @@ export function ProjectPill({
               setOpen(false);
             }}
           >
-            Inbox
+            {t("inbox.title")}
           </button>
         </li>
         {projects.map((project) => (

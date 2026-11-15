@@ -4,6 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { CSSProperties } from "react";
 import { Link } from "react-router";
 
+import { useI18n } from "../../lib/i18n";
 import type { Item } from "../../types/api";
 import { ContextBadge } from "../ui/ContextBadge";
 import { PriorityMark } from "../ui/PriorityMark";
@@ -26,6 +27,7 @@ export function TaskCard({
     listeners: ReturnType<typeof useSortable>["listeners"];
   };
 }) {
+  const { t } = useI18n();
   return (
     <article
       ref={drag?.setNodeRef}
@@ -36,7 +38,7 @@ export function TaskCard({
     >
       <div className="flex items-start justify-between gap-2">
         <Link to={`/item/${item.id}`} className="min-w-0 flex-1 font-medium">
-          {item.title || "Untitled"}
+          {item.title || t("common.untitled")}
         </Link>
         <PriorityMark priority={item.priority ?? "none"} />
       </div>
@@ -45,7 +47,7 @@ export function TaskCard({
           <ContextBadge
             color={item.project?.context.color ?? "#71717A"}
             icon={item.project?.context.icon ?? "layers"}
-            name={item.project?.name ?? "Inbox"}
+            name={item.project?.name ?? t("inbox.title")}
           />
         </div>
       ) : null}

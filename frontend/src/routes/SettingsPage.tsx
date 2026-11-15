@@ -19,6 +19,7 @@ import {
   patchSettings,
 } from "../lib/api";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { modKeyLabel } from "../lib/shortcuts";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -28,6 +29,7 @@ const SECTIONS = [
   { id: "preferences", label: "settings.preferences" },
   { id: "contexts", label: "settings.contexts" },
   { id: "guide", label: "settings.guide" },
+  { id: "shortcuts", label: "settings.shortcuts" },
   { id: "data", label: "settings.data" },
   { id: "connections", label: "settings.connections" },
 ] as const;
@@ -138,11 +140,11 @@ export function SettingsPage() {
 
   async function savePassword() {
     if (newPassword.length < 8) {
-      setPasswordError("Use at least 8 characters.");
+      setPasswordError(t("settings.passwordShort"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError("The new passwords do not match.");
+      setPasswordError(t("settings.passwordMismatch"));
       return;
     }
     setPasswordError("");
@@ -155,7 +157,7 @@ export function SettingsPage() {
       pushToast(t("settings.passwordSaved"));
       setPasswordOpen(false);
     } catch (error) {
-      setPasswordError(error instanceof Error ? error.message : "Could not change the password");
+      setPasswordError(error instanceof Error ? error.message : t("settings.passwordFailed"));
     } finally {
       setPasswordPending(false);
     }
@@ -165,7 +167,7 @@ export function SettingsPage() {
     try {
       await downloadFile(path, fallback);
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Download failed");
+      pushToast(error instanceof Error ? error.message : t("settings.downloadFailed"));
     }
   }
 
@@ -410,41 +412,50 @@ export function SettingsPage() {
             </Button>
           </Panel>
 
-          <Panel id="data" title={t("settings.data")} description="A copy you can keep outside the server. The daily backup on the VPS stays in place.">
+          <Panel id="shortcuts" title={t("settings.shortcuts")} description={t("settings.shortcutsDetail")}>
+            <ul className="flex flex-col">
+              <ShortcutRow label={t("shortcut.search")} keys={<span className="font-mono text-[13px] text-fg-muted">{modKeyLabel()}K</span>} />
+              <ShortcutRow label={t("shortcut.note")} keys={<span className="font-mono text-[13px] text-fg-muted">C</span>} />
+              <ShortcutRow label={t("shortcut.task")} keys={<span className="font-mono text-[13px] text-fg-muted">T</span>} />
+              <ShortcutRow label={t("shortcut.close")} keys={<span className="font-mono text-[13px] text-fg-muted">Esc</span>} />
+            </ul>
+          </Panel>
+
+          <Panel id="data" title={t("settings.data")} description={t("settings.dataDetail")}>
             <div className="flex flex-col gap-3">
               <ExportRow
-                title="SQLite snapshot"
-                detail="A consistent copy of the database, including notes, tasks, and accounts."
-                action="Download database"
+                title={t("settings.sqlite")}
+                detail={t("settings.sqliteDetail")}
+                action={t("settings.downloadDb")}
                 onClick={() => void download("/api/backup/sqlite", "notes.db")}
               />
               <ExportRow
-                title="JSON export"
-                detail="The same records as a file you can open in an editor."
-                action="Download JSON"
+                title={t("settings.json")}
+                detail={t("settings.jsonDetail")}
+                action={t("settings.downloadJson")}
                 onClick={() => void download("/api/backup/json", "notes.json")}
               />
               {settings.data ? (
-                <p className="text-[12px] text-fg-muted">Schema version {settings.data.schema_version}</p>
+                <p className="text-[12px] text-fg-muted">{t("settings.schema", { version: String(settings.data.schema_version) })}</p>
               ) : null}
             </div>
           </Panel>
 
-          <Panel id="connections" title="Connections" description="These stay off until a key is set on the server. Nothing here sends data yet.">
+          <Panel id="connections" title={t("settings.connections")} description={t("settings.connectionsDetail")}>
             <div className="flex flex-col">
               <ConnectionRow
-                title="AI provider"
-                detail={integrations.data?.ai.provider ? integrations.data.ai.provider : "Summaries and action items."}
+                title={t("settings.ai")}
+                detail={integrations.data?.ai.provider ? integrations.data.ai.provider : t("settings.aiDetail")}
                 configured={integrations.data?.ai.configured ?? false}
               />
               <ConnectionRow
-                title="Google Calendar"
-                detail="Meetings can be linked to a calendar event."
+                title={t("settings.google")}
+                detail={t("settings.googleDetail")}
                 configured={integrations.data?.google_calendar.configured ?? false}
               />
               <ConnectionRow
-                title="Microsoft 365"
-                detail="The same link, through Microsoft Graph."
+                title={t("settings.microsoft")}
+                detail={t("settings.microsoftDetail")}
                 configured={integrations.data?.microsoft_calendar.configured ?? false}
               />
             </div>
@@ -491,6 +502,7 @@ function ExportRow({ title, detail, action, onClick }: { title: string; detail: 
 }
 
 function ConnectionRow({ title, detail, configured }: { title: string; detail: string; configured: boolean }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border-subtle py-3 last:border-b-0 last:pb-0 first:pt-0">
       <div>
@@ -498,9 +510,18 @@ function ConnectionRow({ title, detail, configured }: { title: string; detail: s
         <p className="mt-0.5 text-[13px] text-fg-muted">{detail}</p>
       </div>
       <span className={configured ? "shrink-0 text-[12px] text-status-done" : "shrink-0 text-[12px] text-fg-muted"}>
-        {configured ? "Configured" : "Not connected"}
+        {configured ? t("settings.configured") : t("settings.notConnected")}
       </span>
     </div>
+  );
+}
+
+function ShortcutRow({ label, keys }: { label: string; keys: ReactNode }) {
+  return (
+    <li className="flex items-center justify-between gap-4 border-b border-border-subtle py-2.5 last:border-b-0 last:pb-0 first:pt-0">
+      <span className="text-[13px]">{label}</span>
+      {keys}
+    </li>
   );
 }
 

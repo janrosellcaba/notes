@@ -77,7 +77,7 @@ export function CommandPalette() {
           kind: "hit" as const,
           id: hit.id,
           type: hit.type,
-          title: hit.title || "Untitled",
+          title: hit.title || t("common.untitled"),
           snippet: hit.snippet,
           project: hit.project?.name ?? null,
         }))
@@ -104,15 +104,15 @@ export function CommandPalette() {
   const firstHit = rows.findIndex((row) => row.kind === "hit");
 
   return (
-    <Modal title="Search" onClose={close}>
+    <Modal title={t("shortcut.search")} onClose={close}>
       <div className="p-2">
         <div className="flex h-9 items-center gap-2 rounded-[8px] border border-border bg-canvas px-2.5 text-fg-muted">
           <Search size={14} />
           <input
             autoFocus
             value={query}
-            aria-label="Search"
-            placeholder="Search"
+            aria-label={t("shortcut.search")}
+            placeholder={t("shortcut.search")}
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-list"

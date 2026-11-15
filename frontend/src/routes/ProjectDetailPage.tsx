@@ -9,6 +9,7 @@ import { Popover } from "../components/ui/Popover";
 import { TextField } from "../components/ui/TextField";
 import { archiveProject, deleteProject, getProject, listItems, patchProject } from "../lib/api";
 import { relativeTime } from "../lib/dates";
+import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useUi } from "../stores/ui";
 import type { ItemFilters } from "../types/api";
@@ -28,6 +29,7 @@ export function ProjectDetailPage() {
   const queryClient = useQueryClient();
   const openCapture = useUi((state) => state.openCapture);
   const pushToast = useUi((state) => state.pushToast);
+  const { t } = useI18n();
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -103,8 +105,8 @@ export function ProjectDetailPage() {
     }
   }
 
-  if (project.isPending) return <p className="text-fg-muted">Loading…</p>;
-  if (project.isError || !project.data) return <p>This project is not available.</p>;
+  if (project.isPending) return <p className="text-fg-muted">{t("common.loading")}</p>;
+  if (project.isError || !project.data) return <p>{t("project.missing")}</p>;
   const current = project.data;
   const meetingRows = [...(meetings.data?.items ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at));
 
@@ -137,18 +139,18 @@ export function ProjectDetailPage() {
                 setRenaming(true);
               }}
             >
-              Rename
+              {t("project.rename")}
             </button>
             <button type="button" className="min-h-11 rounded-[8px] px-3 text-left hover:bg-interactive" onClick={() => void archive()}>
-              Archive
+              {t("project.archive")}
             </button>
             {confirmDelete ? (
               <button type="button" className="min-h-11 rounded-[8px] px-3 text-left text-status-blocked hover:bg-interactive" onClick={() => void remove()}>
-                Delete project
+                {t("project.deleteConfirm")}
               </button>
             ) : (
               <button type="button" className="min-h-11 rounded-[8px] px-3 text-left hover:bg-interactive" onClick={() => setConfirmDelete(true)}>
-                Delete
+                {t("project.delete")}
               </button>
             )}
           </div>
@@ -164,7 +166,7 @@ export function ProjectDetailPage() {
             className={`min-h-11 rounded-t-[8px] px-3 capitalize ${tab === value ? "text-fg" : "text-fg-muted"}`}
             onClick={() => selectTab(value)}
           >
-            {value}
+            {t(`project.${value}` as MessageKey)}
           </button>
         ))}
       </div>
@@ -175,11 +177,11 @@ export function ProjectDetailPage() {
             className="min-h-11 self-start rounded-[8px] px-2 text-fg-secondary hover:bg-interactive"
             onClick={() => openCapture({ type: "note", projectId: current.id })}
           >
-            + Note in project
+            + {t("project.noteIn")}
           </button>
           {(notes.data?.items ?? []).map((item) => (
             <Link key={item.id} to={`/item/${item.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] px-2 hover:bg-interactive">
-              <span className="truncate">{item.title || "Untitled"}</span>
+              <span className="truncate">{item.title || t("common.untitled")}</span>
               <span className="font-mono text-[13px] text-fg-muted">{relativeTime(item.updated_at)}</span>
             </Link>
           ))}
@@ -193,18 +195,18 @@ export function ProjectDetailPage() {
             className="min-h-11 self-start rounded-[8px] px-2 text-fg-secondary hover:bg-interactive"
             onClick={() => openCapture({ type: "transcript", projectId: current.id })}
           >
-            + Paste transcript
+            + {t("home.transcript")}
           </button>
           {meetingRows.map((item) => (
             <Link key={item.id} to={`/item/${item.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] px-2 hover:bg-interactive">
-              <span className="truncate">{item.title || "Untitled"}</span>
+              <span className="truncate">{item.title || t("common.untitled")}</span>
               <span className="font-mono text-[13px] text-fg-muted">{item.created_at.slice(0, 10)}</span>
             </Link>
           ))}
         </section>
       ) : null}
       {renaming ? (
-        <Modal title="Rename project" onClose={() => setRenaming(false)}>
+        <Modal title={t("project.renameTitle")} onClose={() => setRenaming(false)}>
           <form
             className="flex flex-col gap-4 p-4"
             onSubmit={(event) => {

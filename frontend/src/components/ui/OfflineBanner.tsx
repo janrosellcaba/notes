@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 
+import { useI18n } from "../../lib/i18n";
+
 export function OfflineBanner() {
   const [online, setOnline] = useState(() => navigator.onLine);
+  const { t } = useI18n();
   useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
@@ -15,7 +18,7 @@ export function OfflineBanner() {
   if (online) return null;
   return (
     <p className="border-b border-border bg-elevated px-4 py-2 text-center font-mono text-[13px] text-fg-muted">
-      Offline. Captures will not save until you reconnect.
+      {t("status.offlineBanner")}
     </p>
   );
 }

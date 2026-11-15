@@ -1,4 +1,10 @@
+import { useI18n, type MessageKey } from "../../lib/i18n";
 import { FORMATS, type FormatId } from "./format";
+
+function formatLabel(id: FormatId, t: (key: MessageKey) => string): string {
+  if (id === "h1" || id === "h2") return id.toUpperCase();
+  return t(`format.${id}` as MessageKey);
+}
 
 export function SlashMenu({
   filter,
@@ -11,8 +17,9 @@ export function SlashMenu({
   left: number;
   onPick: (id: FormatId) => void;
 }) {
+  const { t } = useI18n();
   const needle = filter.toLowerCase();
-  const options = FORMATS.filter((format) => format.label.toLowerCase().includes(needle) || format.id.includes(needle));
+  const options = FORMATS.filter((format) => formatLabel(format.id, t).toLowerCase().includes(needle) || format.id.includes(needle));
   if (options.length === 0) return null;
   return (
     <ul
@@ -27,7 +34,7 @@ export function SlashMenu({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onPick(format.id)}
           >
-            {format.label}
+            {formatLabel(format.id, t)}
           </button>
         </li>
       ))}

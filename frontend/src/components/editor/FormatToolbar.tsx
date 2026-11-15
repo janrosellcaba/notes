@@ -1,6 +1,12 @@
 import type { EditorView } from "@codemirror/view";
 
+import { useI18n, type MessageKey } from "../../lib/i18n";
 import { applyFormat, FORMATS, type FormatId } from "./format";
+
+function formatLabel(id: FormatId, t: (key: MessageKey) => string): string {
+  if (id === "h1" || id === "h2") return id.toUpperCase();
+  return t(`format.${id}` as MessageKey);
+}
 
 export function FormatToolbar({
   view,
@@ -9,6 +15,7 @@ export function FormatToolbar({
   view: EditorView | null;
   onTask?: () => void;
 }) {
+  const { t } = useI18n();
   function run(id: FormatId) {
     if (!view) return;
     applyFormat(view, id);
@@ -24,7 +31,7 @@ export function FormatToolbar({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => run(format.id)}
         >
-          {format.label}
+          {formatLabel(format.id, t)}
         </button>
       ))}
       {onTask ? (
@@ -34,7 +41,7 @@ export function FormatToolbar({
           onMouseDown={(event) => event.preventDefault()}
           onClick={onTask}
         >
-          Task
+          {t("editor.task")}
         </button>
       ) : null}
     </div>

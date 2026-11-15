@@ -97,18 +97,18 @@ export function TasksPage() {
                         type="checkbox"
                         className="h-4 w-4"
                         checked={item.status === "done"}
-                        aria-label={`Complete ${item.title || "Untitled"}`}
+                        aria-label={`${t("board.done")} ${item.title || t("common.untitled")}`}
                         onClick={(event) => event.stopPropagation()}
                         onChange={() => void toggle(item)}
                       />
                       <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setEditing(item)}>
-                        <span className="min-w-0 flex-1 truncate">{item.title || "Untitled"}</span>
+                        <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
                         <span className="font-mono text-[13px] text-fg-muted">{item.due_on ?? ""}</span>
                         <PriorityMark priority={item.priority} />
                         <ContextBadge
                           color={item.project?.context.color ?? "#71717A"}
                           icon={item.project?.context.icon ?? "layers"}
-                          name={item.project?.name ?? "Inbox"}
+                          name={item.project?.name ?? t("inbox.title")}
                         />
                       </button>
                     </li>

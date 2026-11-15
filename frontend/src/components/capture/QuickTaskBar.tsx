@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 import { createItem, errorMessage, newIdempotencyKey } from "../../lib/api";
 import { filedContext } from "../../lib/capture";
+import { useI18n } from "../../lib/i18n";
 import { insertTodayTask, invalidateItemViews, mapItem, projectRefFromCache } from "../../lib/cache";
 import { cn } from "../../lib/cn";
 import { todayISO, tomorrowISO } from "../../lib/dates";
@@ -14,13 +15,7 @@ import type { Item, ItemPriority } from "../../types/api";
 import { IconButton } from "../ui/IconButton";
 import { Popover } from "../ui/Popover";
 
-const PRIORITIES: Array<[ItemPriority, string]> = [
-  ["urgent", "Urgent"],
-  ["high", "High"],
-  ["medium", "Medium"],
-  ["low", "Low"],
-  ["none", "None"],
-];
+const PRIORITIES: ItemPriority[] = ["urgent", "high", "medium", "low", "none"];
 
 function chipClass(active: boolean): string {
   return cn(
@@ -33,6 +28,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
+  const { t } = useI18n();
   const projects = useProjectList("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
@@ -46,7 +42,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   useOverlayLayer(true, onClose);
 
   const project = projects.data?.projects.find((entry) => entry.id === projectId);
-  const priorityLabel = PRIORITIES.find(([value]) => value === priority)?.[1] ?? "Priority";
+  const priorityLabel = t(`task.${priority}` as "task.none");
 
   async function submit() {
     const nextTitle = title.trim();
@@ -121,25 +117,25 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
             ref={inputRef}
             autoFocus
             value={title}
-            aria-label="Add a task"
-            placeholder="Add a task"
+            aria-label={t("task.add")}
+            placeholder={t("task.add")}
             className="min-h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none"
             onChange={(event) => setTitle(event.target.value)}
           />
-          <IconButton label="Close" onClick={onClose}>
+          <IconButton label={t("task.close")} onClick={onClose}>
             <X size={18} />
           </IconButton>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" className={chipClass(due === today)} onClick={() => setDue((value) => (value === today ? null : today))}>
-            Today
+            {t("task.today")}
           </button>
           <button
             type="button"
             className={chipClass(due === tomorrow)}
             onClick={() => setDue((value) => (value === tomorrow ? null : tomorrow))}
           >
-            Tomorrow
+            {t("task.tomorrow")}
           </button>
           <Popover
             open={projectOpen}
@@ -153,7 +149,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
                   setProjectOpen((value) => !value);
                 }}
               >
-                {project ? `@ ${project.name}` : "@ Project"}
+                {project ? `@ ${project.name}` : `@ ${t("task.project")}`}
               </button>
             }
           >
@@ -167,7 +163,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
                     setProjectOpen(false);
                   }}
                 >
-                  Inbox
+                  {t("inbox.title")}
                 </button>
               </li>
               {(projects.data?.projects ?? []).map((entry) => (
@@ -199,22 +195,22 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
                   setPriorityOpen((value) => !value);
                 }}
               >
-                {priority === "none" ? "! Priority" : `! ${priorityLabel}`}
+                {priority === "none" ? `! ${t("task.priority")}` : `! ${priorityLabel}`}
               </button>
             }
           >
             <ul>
-              {PRIORITIES.map(([value, label]) => (
+              {PRIORITIES.map((value) => (
                 <li key={value}>
                   <button
                     type="button"
-                    className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left hover:bg-interactive"
+                    className="flex min-h-8 w-full items-center rounded-[8px] px-3 text-left text-[13px] hover:bg-interactive"
                     onClick={() => {
                       setPriority(value);
                       setPriorityOpen(false);
                     }}
                   >
-                    {label}
+                    {t(`task.${value}` as "task.none")}
                   </button>
                 </li>
               ))}

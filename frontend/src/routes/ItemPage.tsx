@@ -8,6 +8,7 @@ import { ProjectPill } from "../components/editor/ProjectPill";
 import { TranscriptDrawer } from "../components/editor/TranscriptDrawer";
 import { aiProcess, deleteAttachment, extractTask, getItem, listAttachments, listBacklinks, patchItem, restoreItem, uploadAttachment } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
+import { useI18n } from "../lib/i18n";
 import { useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
 import type { Item, ItemPatch } from "../types/api";
@@ -28,6 +29,7 @@ export default function ItemPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const { t } = useI18n();
   const projects = useProjectList("all");
   const item = useQuery({
     queryKey: queryKeys.item(itemId),
@@ -61,7 +63,7 @@ export default function ItemPage() {
     if (Object.keys(patch).length === 0) return;
     if (!navigator.onLine) {
       state.current.pending = true;
-      if (alive.current) setStatus("Offline — not saved");
+      if (alive.current) setStatus(t("status.offline"));
       return;
     }
     if (state.current.saving) {
@@ -69,14 +71,14 @@ export default function ItemPage() {
       return;
     }
     state.current.saving = true;
-    if (alive.current) setStatus("Saving…");
+    if (alive.current) setStatus(t("status.saving"));
     try {
       const updated = await patchItem(item.data.id, patch);
       state.current.saved = draftFrom(updated);
       queryClient.setQueryData(queryKeys.item(item.data.id), updated);
-      if (alive.current) setStatus("Saved");
+      if (alive.current) setStatus(t("status.saved"));
     } catch {
-      if (alive.current) setStatus("Offline — not saved");
+      if (alive.current) setStatus(t("status.offline"));
     } finally {
       state.current.saving = false;
       if (state.current.pending) {
@@ -125,7 +127,7 @@ export default function ItemPage() {
 
   async function createTask(selection: string) {
     if (!selection.trim()) {
-      pushToast("Select text first");
+      pushToast(t("editor.selectText"));
       return;
     }
     await flushRef.current();
@@ -135,14 +137,14 @@ export default function ItemPage() {
         title: selection.trim().slice(0, 500),
         selection: selection.slice(0, 2000),
       });
-      pushToast("Task created", { href: `/item/${task.id}`, label: "Open" });
+      pushToast(t("editor.taskCreated"), { href: `/item/${task.id}`, label: t("editor.open") });
     } catch (error) {
       pushToast(error instanceof Error ? error.message : "Could not create the task");
     }
   }
 
-  if (item.isPending || !draft) return <p className="text-fg-muted">Loading…</p>;
-  if (item.isError || !item.data) return <p>This item is not available.</p>;
+  if (item.isPending || !draft) return <p className="text-fg-muted">{t("common.loading")}</p>;
+  if (item.isError || !item.data) return <p>{t("editor.unavailable")}</p>;
   const current = item.data;
   const meeting = current.type === "meeting";
 
@@ -150,7 +152,7 @@ export default function ItemPage() {
     <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 pb-3">
         <button type="button" className="min-h-11 rounded-[8px] px-2 text-fg-secondary hover:bg-interactive" onClick={() => void navigate(-1)}>
-          Back
+          {t("editor.back")}
         </button>
         {current.type !== "task" ? (
           <button
@@ -160,7 +162,7 @@ export default function ItemPage() {
             onClick={() => void togglePin()}
           >
             <Pin size={16} />
-            Pin
+            {t("editor.pin")}
           </button>
         ) : null}
         <ProjectPill
@@ -176,10 +178,10 @@ export default function ItemPage() {
           onClick={() => void aiProcess(current.id)}
         >
           <Sparkles size={16} />
-          AI summarize
+          {t("editor.ai")}
         </button>
         <span id="ai-unavailable" className="sr-only">
-          AI processing is not configured
+          {t("editor.aiOff")}
         </span>
         <p className="font-mono text-[13px] text-fg-muted" aria-live="polite">
           {status}
@@ -187,11 +189,11 @@ export default function ItemPage() {
       </header>
       <input
         value={draft.title}
-        aria-label="Title"
+        aria-label={t("editor.title")}
         className="border-b border-border-subtle bg-transparent px-1 py-2 text-[20px] outline-none"
         onChange={(event) => patchDraft({ title: event.target.value })}
       />
-      {meeting ? <p className="px-1 pt-3 text-[13px] text-fg-muted">Takeaways and action items</p> : null}
+      {meeting ? <p className="px-1 pt-3 text-[13px] text-fg-muted">{t("editor.takeaways")}</p> : null}
       <NoteSurface
         value={draft.body}
         onChange={(body) => patchDraft({ body })}
@@ -202,13 +204,13 @@ export default function ItemPage() {
       ) : null}
       {current.deleted_at ? (
         <p className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-border px-3 py-2 text-[13px]">
-          This is in the trash.
+          {t("editor.inTrash")}
           <button
             type="button"
             className="min-h-11 rounded-[8px] border border-border px-3"
             onClick={() => void restoreItem(current.id).then((saved) => queryClient.setQueryData(queryKeys.item(current.id), saved))}
           >
-            Restore
+            {t("trash.restore")}
           </button>
         </p>
       ) : null}
@@ -217,7 +219,7 @@ export default function ItemPage() {
       <Backlinks itemId={current.id} />
       {current.source_item_id ? (
         <p className="px-1 py-3 text-[13px] text-fg-muted">
-          From <Link to={`/item/${current.source_item_id}`} className="underline">source</Link>
+          {t("editor.from")} <Link to={`/item/${current.source_item_id}`} className="underline">{t("editor.source")}</Link>
         </p>
       ) : null}
     </div>
@@ -226,9 +228,10 @@ export default function ItemPage() {
 
 function RepeatControl({ item }: { item: Item }) {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   return (
     <label className="mt-3 block px-1 text-[13px] text-fg-secondary">
-      Repeats
+      {t("editor.repeats")}
       <select
         value={item.recurrence ?? ""}
         className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
@@ -246,25 +249,26 @@ function RepeatControl({ item }: { item: Item }) {
           });
         }}
       >
-        <option value="">Does not repeat</option>
-        <option value="weekly">Every week</option>
-        <option value="monthly">Every month</option>
+        <option value="">{t("editor.repeatNone")}</option>
+        <option value="weekly">{t("editor.repeatWeek")}</option>
+        <option value="monthly">{t("editor.repeatMonth")}</option>
       </select>
     </label>
   );
 }
 
 function Backlinks({ itemId }: { itemId: string }) {
+  const { t } = useI18n();
   const links = useQuery({ queryKey: ["backlinks", itemId], queryFn: () => listBacklinks(itemId) });
   const items = links.data?.items ?? [];
   if (items.length === 0) return null;
   return (
     <section className="mt-4 px-1">
-      <h2 className="text-[13px] text-fg-muted">Linked from</h2>
+      <h2 className="text-[13px] text-fg-muted">{t("editor.linked")}</h2>
       <ul className="mt-2 flex flex-col gap-1">
         {items.map((item) => (
           <li key={item.id}>
-            <Link to={`/item/${item.id}`} className="underline">{item.title || "Untitled"}</Link>
+            <Link to={`/item/${item.id}`} className="underline">{item.title || t("common.untitled")}</Link>
           </li>
         ))}
       </ul>
@@ -275,6 +279,7 @@ function Backlinks({ itemId }: { itemId: string }) {
 function Attachments({ itemId }: { itemId: string }) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
+  const { t } = useI18n();
   const files = useQuery({ queryKey: ["attachments", itemId], queryFn: () => listAttachments(itemId) });
 
   async function onFiles(list: FileList | null) {
@@ -297,9 +302,9 @@ function Attachments({ itemId }: { itemId: string }) {
       }}
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[13px] text-fg-muted">Attachments</h2>
-        <label className="min-h-11 cursor-pointer rounded-[8px] border border-border px-3 leading-[2.75rem]">
-          Add image or PDF
+        <h2 className="text-[13px] text-fg-muted">{t("editor.attachments")}</h2>
+        <label className="min-h-8 cursor-pointer rounded-[8px] border border-border px-3 text-[13px] leading-8">
+          {t("editor.addFile")}
           <input
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
@@ -319,7 +324,7 @@ function Attachments({ itemId }: { itemId: string }) {
               className="text-[13px] text-fg-muted"
               onClick={() => void deleteAttachment(itemId, file.id).then(() => queryClient.invalidateQueries({ queryKey: ["attachments", itemId] }))}
             >
-              Remove
+              {t("editor.remove")}
             </button>
           </li>
         ))}

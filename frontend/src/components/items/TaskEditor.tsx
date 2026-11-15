@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { patchItem } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
@@ -15,6 +16,7 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const projects = useProjectList("all");
+  const { t } = useI18n();
   const [title, setTitle] = useState(item.title);
   const [body, setBody] = useState(item.body_md);
   const [due, setDue] = useState(item.due_on ?? "");
@@ -39,21 +41,21 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not save the task");
+      pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
     }
   }
 
   return (
-    <Modal title="Task" onClose={onClose}>
+    <Modal title={t("editor.task")} onClose={onClose}>
       <form className="flex flex-col gap-3 p-4" onSubmit={(event) => event.preventDefault()}>
         <input
           value={title}
-          aria-label="Title"
+          aria-label={t("editor.title")}
           className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
           onChange={(event) => setTitle(event.target.value)}
         />
         <label className="block text-[13px] text-fg-secondary">
-          Due
+          {t("task.due")}
           <input
             type="date"
             value={due}
@@ -66,7 +68,7 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
           />
         </label>
         <label className="block text-[13px] text-fg-secondary">
-          Priority
+          {t("task.priority")}
           <select
             value={priority}
             className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
@@ -78,13 +80,13 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
           >
             {PRIORITIES.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {t(`task.${option}` as "task.none")}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-[13px] text-fg-secondary">
-          Repeats
+          {t("editor.repeats")}
           <select
             value={repeat}
             className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
@@ -99,13 +101,13 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
               });
             }}
           >
-            <option value="">Does not repeat</option>
-            <option value="weekly">Every week</option>
-            <option value="monthly">Every month</option>
+            <option value="">{t("editor.repeatNone")}</option>
+            <option value="weekly">{t("editor.repeatWeek")}</option>
+            <option value="monthly">{t("editor.repeatMonth")}</option>
           </select>
         </label>
         <label className="block text-[13px] text-fg-secondary">
-          Project
+          {t("task.project")}
           <select
             value={projectId}
             className="mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px]"
@@ -115,7 +117,7 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
               void save({ project_id: next || null });
             }}
           >
-            <option value="">Inbox</option>
+            <option value="">{t("inbox.title")}</option>
             {(projects.data?.projects ?? []).map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
@@ -125,12 +127,12 @@ export function TaskEditor({ item, onClose }: { item: Item; onClose: () => void 
         </label>
         <textarea
           value={body}
-          aria-label="Notes"
+          aria-label={t("task.notes")}
           className="min-h-32 rounded-[8px] border border-border bg-canvas px-3 py-2 text-[16px] leading-[1.6] outline-none focus:border-fg"
           onChange={(event) => setBody(event.target.value)}
         />
         <Link to={`/item/${item.id}`} className="min-h-11 self-start leading-[2.75rem] underline">
-          Open
+          {t("editor.open")}
         </Link>
       </form>
     </Modal>

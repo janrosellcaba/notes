@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { createItem, errorMessage, extractTask, newIdempotencyKey, patchItem } from "../../lib/api";
 import { filedContext } from "../../lib/capture";
+import { useI18n } from "../../lib/i18n";
 import { invalidateItemViews } from "../../lib/cache";
 import { useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
@@ -21,6 +22,7 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
+  const { t } = useI18n();
   const projects = useProjectList("all");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -43,7 +45,7 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
     if (!state.current.id && !hasText) return;
     if (state.current.saved && sameDraft(state.current.saved, current)) return;
     if (!navigator.onLine) {
-      if (alive.current) setStatus("Offline — not saved");
+      if (alive.current) setStatus(t("status.offline"));
       state.current.pending = true;
       return;
     }
@@ -52,7 +54,7 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
       return;
     }
     state.current.saving = true;
-    if (alive.current) setStatus("Saving…");
+    if (alive.current) setStatus(t("status.saving"));
     try {
       if (!state.current.id) {
         const created = await createItem(
@@ -75,11 +77,11 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
         if (Object.keys(patch).length > 0) await patchItem(state.current.id, patch);
       }
       state.current.saved = { ...current };
-      if (alive.current) setStatus("Saved");
+      if (alive.current) setStatus(t("status.saved"));
       invalidateItemViews(queryClient, state.current.id ?? undefined);
     } catch (error) {
       if (alive.current) {
-        setStatus("Offline — not saved");
+        setStatus(t("status.offline"));
         const message = errorMessage(error);
         if (message) pushToast(message);
       }
@@ -162,7 +164,7 @@ export function QuickNoteSheet({ projectId, onClose }: { projectId: string | nul
         <input
           value={title}
           aria-label="Title"
-          placeholder="Title"
+          placeholder={t("editor.title")}
           className="border-b border-border-subtle bg-transparent px-4 py-3 text-[16px] outline-none"
           onChange={(event) => {
             const next = event.target.value;
