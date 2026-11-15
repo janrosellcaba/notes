@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { listItems } from "../lib/api";
+import { openDaily } from "../lib/daily";
 import { relativeTime, todayLabel } from "../lib/dates";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
@@ -17,12 +18,15 @@ import { FileText, ListTodo, PenLine } from "lucide-react";
 export function HomePage() {
   const openCapture = useUi((state) => state.openCapture);
   const contextId = useUi((state) => state.contextId);
+  const navigate = useNavigate();
   const { t } = useI18n();
   const recent = useQuery({
     queryKey: queryKeys.items({ limit: 12, context_id: contextId === "all" ? undefined : contextId }),
     queryFn: () => listItems({ limit: 12, context_id: contextId === "all" ? undefined : contextId }),
   });
-  const recentNotes = (recent.data?.items ?? []).filter((item) => item.type !== "task").slice(0, 5);
+  const recentNotes = (recent.data?.items ?? [])
+    .filter((item) => item.type !== "task" && !item.daily_on)
+    .slice(0, 5);
   const home = useHomeFeed();
   useEffect(() => {
     const idle = window.requestIdleCallback?.(() => {
@@ -40,11 +44,22 @@ export function HomePage() {
   }, []);
   const tasks = home.data?.today_tasks ?? [];
 
+  async function openToday() {
+    const id = await openDaily();
+    if (id) void navigate(`/item/${id}`);
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
       <header>
         <h1 className="text-[20px]">{t("nav.home")}</h1>
-        <p className="mt-1 text-[13px] text-fg-muted">{todayLabel()}</p>
+        <button
+          type="button"
+          className="mt-1 text-[13px] text-fg-muted hover:text-fg"
+          onClick={() => void openToday()}
+        >
+          {todayLabel()}
+        </button>
       </header>
       <section>
         <div className="mb-3 flex items-center justify-between">

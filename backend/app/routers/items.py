@@ -103,6 +103,13 @@ async def lookup(title: str, db: Database = Depends(get_db)) -> ItemRef:
     return ItemRef(id=item.id, type=item.type, title=item.title)
 
 
+@router.put("/daily/{day}", response_model=Item)
+async def ensure_daily(day: str, response: Response, db: Database = Depends(get_db)) -> Item:
+    item, created = await items.ensure_daily(db, day)
+    response.status_code = 201 if created else 200
+    return item
+
+
 @router.get("/{item_id}", response_model=Item)
 async def get_item(item_id: str, db: Database = Depends(get_db)) -> Item:
     return await items.get_item(db, item_id)

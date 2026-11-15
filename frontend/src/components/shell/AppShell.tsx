@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { Outlet, useMatch } from "react-router";
+import { Outlet, useMatch, useNavigate } from "react-router";
 
+import { openDaily } from "../../lib/daily";
 import { isEditableTarget } from "../../lib/shortcuts";
 import { cn } from "../../lib/cn";
 import { useUi } from "../../stores/ui";
@@ -19,6 +20,7 @@ export function AppShell() {
   const editor = useMatch("/item/:itemId");
   const capture = useUi((state) => state.capture);
   const closeCapture = useUi((state) => state.closeCapture);
+  const navigate = useNavigate();
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -39,10 +41,16 @@ export function AppShell() {
       const key = event.key.toLowerCase();
       if (key === "c") useUi.getState().openCapture({ type: "note", projectId: null });
       if (key === "t") useUi.getState().openCapture({ type: "task" });
+      if (key === "d") {
+        event.preventDefault();
+        void openDaily().then((id) => {
+          if (id) void navigate(`/item/${id}`);
+        });
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="flex h-dvh flex-col bg-canvas text-fg">

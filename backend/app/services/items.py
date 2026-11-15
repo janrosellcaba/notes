@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import calendar
 import re
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -770,6 +771,42 @@ async def lookup_title(db: Database, title: str) -> Item:
     return to_item(row)
 
 
+async def _daily_by_day(db: Reader, day: str) -> Item | None:
+    row = await db.fetchone(
+        f"SELECT {_COLUMNS} {_FROM} WHERE i.daily_on = ? AND i.deleted_at IS NULL",
+        (day,),
+    )
+    return None if row is None else to_item(row)
+
+
+async def ensure_daily(db: Database, day: str) -> tuple[Item, bool]:
+    """Return the note for a calendar day, creating an empty one when needed."""
+    if not _valid_day(day):
+        field_error("day", "day must be YYYY-MM-DD")
+    existing = await _daily_by_day(db, day)
+    if existing is not None:
+        return existing, False
+    now = utc_now()
+    item_id = str(uuid4())
+    try:
+        async with db.transaction() as tx:
+            await tx.execute(
+                """
+                INSERT INTO items (
+                  id, type, title, body_md, project_id, context_id, status, priority, due_on,
+                  position, pinned, transcript_raw, external_url, daily_on, created_at, updated_at
+                ) VALUES (?, 'note', ?, '', NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, ?, ?, ?)
+                """,
+                (item_id, day, day, now, now),
+            )
+            return await get_item(tx, item_id), True
+    except sqlite3.IntegrityError:
+        raced = await _daily_by_day(db, day)
+        if raced is not None:
+            return raced, False
+        raise
+
+
 def _like_literal(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -823,7 +860,7 @@ async def convert_to_task(db: Database, item_id: str) -> Item:
             """
             UPDATE items
             SET type = 'task', title = ?, status = 'todo', priority = 'none',
-                position = ?, pinned = 0, completed_at = NULL, updated_at = ?
+                position = ?, pinned = 0, daily_on = NULL, completed_at = NULL, updated_at = ?
             WHERE id = ?
             """,
             (title, position, now, item_id),

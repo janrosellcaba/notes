@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { listItems } from "../../lib/api";
+import { openDaily } from "../../lib/daily";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useUi } from "../../stores/ui";
@@ -21,9 +22,11 @@ function monthDays(year: number, month: number): Date[] {
 }
 
 export function MonthCalendar() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
+  const navigate = useNavigate();
   const contextId = useUi((state) => state.contextId);
   const [cursor, setCursor] = useState(() => new Date());
+  const [opening, setOpening] = useState<string | null>(null);
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const language = locale === "en" ? "en-GB" : locale;
@@ -35,6 +38,10 @@ export function MonthCalendar() {
   const meetings = useQuery({
     queryKey: queryKeys.items({ ...filters, type: "meeting" }),
     queryFn: () => listItems({ ...filters, type: "meeting" }),
+  });
+  const notes = useQuery({
+    queryKey: queryKeys.items({ ...filters, type: "note" }),
+    queryFn: () => listItems({ ...filters, type: "note" }),
   });
   const byDay = useMemo(() => {
     const map = new Map<string, Array<{ id: string; title: string }>>();
@@ -48,10 +55,28 @@ export function MonthCalendar() {
     for (const item of meetings.data?.items ?? []) add(iso(new Date(item.created_at)), item.id, item.title);
     return map;
   }, [tasks.data, meetings.data]);
+  const dailyDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of notes.data?.items ?? []) {
+      if (item.daily_on) set.add(item.daily_on);
+    }
+    return set;
+  }, [notes.data]);
   const days = monthDays(year, month);
   const today = iso(new Date());
   const label = new Date(year, month, 1).toLocaleDateString(language, { month: "long", year: "numeric" });
   const weekday = new Date(2026, 10, 16);
+
+  async function openDay(day: string) {
+    if (opening) return;
+    setOpening(day);
+    try {
+      const id = await openDaily(day);
+      if (id) void navigate(`/item/${id}`);
+    } finally {
+      setOpening(null);
+    }
+  }
 
   return (
     <section className="rounded-[10px] border border-border bg-elevated">
@@ -76,9 +101,19 @@ export function MonthCalendar() {
           const key = iso(day);
           const items = byDay.get(key) ?? [];
           const outside = day.getMonth() !== month;
+          const hasDaily = dailyDays.has(key);
           return (
             <div key={key} className={`min-h-16 rounded-[8px] px-1 py-1 ${key === today ? "bg-interactive" : ""}`}>
-              <p className={`text-[12px] ${outside ? "text-fg-muted" : "text-fg-secondary"}`}>{day.getDate()}</p>
+              <button
+                type="button"
+                className={`flex w-full items-center gap-1 text-left text-[12px] hover:text-fg ${outside ? "text-fg-muted" : "text-fg-secondary"}`}
+                aria-label={t("home.openDaily", { day: key })}
+                disabled={opening === key}
+                onClick={() => void openDay(key)}
+              >
+                <span>{day.getDate()}</span>
+                {hasDaily ? <span className="h-1.5 w-1.5 rounded-full bg-fg" aria-hidden /> : null}
+              </button>
               {items.slice(0, 2).map((item) => (
                 <Link key={item.id} to={`/item/${item.id}`} className="mt-0.5 block truncate text-[11px] text-fg hover:underline">
                   {item.title}

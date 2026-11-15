@@ -95,6 +95,22 @@ async def test_completing_a_repeating_task_creates_the_next_one(authed: tuple[ob
     assert rent["due_on"] == "2026-02-28"
 
 
+async def test_daily_note_is_idempotent_and_stays_out_of_inbox(authed: tuple[object, AsyncClient]) -> None:
+    _app, http = authed
+    first = await http.put("/api/items/daily/2026-11-15")
+    assert first.status_code == 201, first.text
+    assert first.json()["type"] == "note"
+    assert first.json()["daily_on"] == "2026-11-15"
+    assert first.json()["title"] == "2026-11-15"
+    second = await http.put("/api/items/daily/2026-11-15")
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+    inbox = await http.get("/api/items", params={"project_id": "none"})
+    assert first.json()["id"] not in {row["id"] for row in inbox.json()["items"]}
+    bad = await http.put("/api/items/daily/not-a-day")
+    assert bad.status_code == 422
+
+
 async def test_wikilinks_resolve_and_list_backlinks(authed: tuple[object, AsyncClient]) -> None:
     _app, http = authed
     target = await http.post("/api/items", json={"type": "note", "title": "Beta note", "body_md": "target"})

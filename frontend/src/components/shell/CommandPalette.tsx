@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
 import { searchItems } from "../../lib/api";
+import { openDaily } from "../../lib/daily";
 import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/cn";
 import { searchTokens } from "../../lib/dates";
@@ -62,6 +63,18 @@ export function CommandPalette() {
         color: null,
         run: () => openCapture({ type: "meeting", projectId: null }),
       },
+      {
+        kind: "action",
+        id: "daily",
+        label: t("search.todayNote"),
+        icon: null,
+        color: null,
+        run: () => {
+          void openDaily().then((id) => {
+            if (id) void navigate(`/item/${id}`);
+          });
+        },
+      },
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,
         id: context.id,
@@ -83,7 +96,7 @@ export function CommandPalette() {
         }))
       : [];
     return [...matched, ...hits];
-  }, [contexts.data?.contexts, openCapture, query, search.data?.results, searchable, setContextId, t]);
+  }, [contexts.data?.contexts, navigate, openCapture, query, search.data?.results, searchable, setContextId, t]);
 
   if (!open) return null;
 
