@@ -200,10 +200,6 @@ export function purgeItem(id: string): Promise<void> {
   return api<void>(`/api/items/${encodeURIComponent(id)}/permanent`, { method: "DELETE" });
 }
 
-export function dailyNote(day: string): Promise<Item> {
-  return api<Item>(`/api/items/daily?day=${encodeURIComponent(day)}`);
-}
-
 export function lookupTitle(title: string): Promise<{ id: string; type: string; title: string }> {
   return api(`/api/items/lookup?title=${encodeURIComponent(title)}`);
 }

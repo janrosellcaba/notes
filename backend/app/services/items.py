@@ -757,29 +757,6 @@ async def purge_expired_trash(db: Database, *, days: int = 30) -> None:
     await db.execute("DELETE FROM items WHERE deleted_at IS NOT NULL AND deleted_at < ?", (cutoff,))
 
 
-async def daily_note(db: Database, day: str) -> Item:
-    if not _valid_day(day):
-        field_error("day", "day must be YYYY-MM-DD")
-    existing = await db.fetchone(
-        "SELECT id FROM items WHERE daily_on = ? AND deleted_at IS NULL",
-        (day,),
-    )
-    if existing is not None:
-        return await get_item(db, str(existing["id"]))
-    parsed = datetime.strptime(day, "%Y-%m-%d")
-    title = f"{parsed.day} {parsed.strftime('%B %Y')}"
-    now = utc_now()
-    item_id = str(uuid4())
-    await db.execute(
-        """
-        INSERT INTO items (id, type, title, body_md, pinned, daily_on, created_at, updated_at)
-        VALUES (?, 'note', ?, '', 0, ?, ?, ?)
-        """,
-        (item_id, title, day, now, now),
-    )
-    return await get_item(db, item_id)
-
-
 async def lookup_title(db: Database, title: str) -> Item:
     cleaned = title.strip()
     if not cleaned:

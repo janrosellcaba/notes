@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
-import { createItem, dailyNote, listItems } from "../lib/api";
+import { createItem, listItems } from "../lib/api";
 import { filedContext } from "../lib/capture";
-import { meetingTitle, relativeTime, todayISO, todayLabel } from "../lib/dates";
+import { meetingTitle, relativeTime, todayLabel } from "../lib/dates";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
@@ -13,7 +13,7 @@ import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PinnedCard } from "../components/items/PinnedCard";
 import { TaskRow } from "../components/items/TaskRow";
-import { Calendar, ChevronDown, FileText, ListTodo, Mic, PenLine } from "lucide-react";
+import { ChevronDown, FileText, ListTodo, Mic, PenLine } from "lucide-react";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -43,15 +43,6 @@ export function HomePage() {
     }, 400);
     return () => window.clearTimeout(timer);
   }, []);
-  async function openDaily() {
-    try {
-      const note = await dailyNote(todayISO());
-      void navigate(`/item/${note.id}`);
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not open today's note");
-    }
-  }
-
   async function openMeeting() {
     try {
       const meeting = await createItem({
@@ -81,10 +72,10 @@ export function HomePage() {
             {t("home.newProject")}
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            className="col-span-2 flex min-h-9 items-center gap-2 rounded-[8px] border border-border-strong bg-interactive px-3 text-left text-[13px] md:col-span-1"
+            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border-strong bg-interactive px-3 text-left text-[13px]"
             onClick={() => openCapture({ type: "note", projectId: null })}
           >
             <PenLine size={16} />
@@ -101,14 +92,6 @@ export function HomePage() {
           <button
             type="button"
             className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => void openDaily()}
-          >
-            <Calendar size={16} />
-            {t("home.daily")}
-          </button>
-          <button
-            type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
             onClick={() => void openMeeting()}
           >
             <FileText size={16} />
@@ -116,7 +99,7 @@ export function HomePage() {
           </button>
           <button
             type="button"
-            className="col-span-2 flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive md:col-span-1"
+            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
             onClick={() => openCapture({ type: "transcript", projectId: null })}
           >
             <Mic size={16} />

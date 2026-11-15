@@ -97,11 +97,6 @@ async def trash(db: Database = Depends(get_db)) -> ItemList:
     return ItemList(items=found, next_cursor=None)
 
 
-@router.get("/daily", response_model=Item)
-async def daily(day: str, db: Database = Depends(get_db)) -> Item:
-    return await items.daily_note(db, day)
-
-
 @router.get("/lookup", response_model=ItemRef)
 async def lookup(title: str, db: Database = Depends(get_db)) -> ItemRef:
     item = await items.lookup_title(db, title)

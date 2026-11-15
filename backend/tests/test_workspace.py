@@ -1,4 +1,4 @@
-"""Trash, daily notes, recurrence, backlinks, meeting templates, and attachments."""
+"""Trash, recurrence, backlinks, meeting templates, and attachments."""
 
 import base64
 import json
@@ -45,18 +45,6 @@ async def test_trash_hides_restores_and_expires(authed: tuple[object, AsyncClien
     )
     await purge_expired_trash(app.state.db)
     assert (await http.get(f"/api/items/{doomed_id}")).status_code == 404
-
-
-async def test_daily_note_is_stable_for_a_day(authed: tuple[object, AsyncClient]) -> None:
-    _app, http = authed
-    first = await http.get("/api/items/daily", params={"day": "2026-11-15"})
-    second = await http.get("/api/items/daily", params={"day": "2026-11-15"})
-    assert first.status_code == 200
-    assert first.json()["id"] == second.json()["id"]
-    assert first.json()["title"] == "15 November 2026"
-    assert first.json()["type"] == "note"
-    other = await http.get("/api/items/daily", params={"day": "2026-11-16"})
-    assert other.json()["id"] != first.json()["id"]
 
 
 async def test_blank_meeting_uses_the_template(authed: tuple[object, AsyncClient]) -> None:
