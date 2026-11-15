@@ -1,0 +1,231 @@
+"""SQLite connection, pragmas, and the one-shot schema migration."""
+
+from __future__ import annotations
+
+import asyncio
+import re
+import sqlite3
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+import aiosqlite
+
+from app.config import DEFAULT_TIMEZONE
+
+MIGRATION_PATH = Path(__file__).parent / "migrations" / "001_init.sql"
+SCHEMA_VERSION = "1"
+
+_BEGIN_END = re.compile(r"\b(BEGIN|END)\b", re.IGNORECASE)
+
+
+def split_sql(script: str) -> list[str]:
+    """Split a script on semicolons that are outside trigger bodies."""
+    lines: list[str] = []
+    for line in script.splitlines():
+        code, _sep, _comment = line.partition("--")
+        lines.append(code)
+    text = "\n".join(lines)
+    statements: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for chunk in re.split(r"(;)", text):
+        if chunk == ";":
+            current.append(chunk)
+            if depth == 0:
+                statement = "".join(current).strip()
+                if statement.strip(";").strip():
+                    statements.append(statement)
+                current = []
+            continue
+        current.append(chunk)
+        for word in _BEGIN_END.findall(chunk):
+            if word.upper() == "BEGIN":
+                depth += 1
+            else:
+                depth = max(0, depth - 1)
+    tail = "".join(current).strip()
+    if tail:
+        statements.append(tail)
+    return statements
+
+
+class Database:
+    """One long-lived SQLite connection. Callers share an asyncio lock."""
+
+    def __init__(self, path: Path, user_timezone: str) -> None:
+        self.path = path
+        self.user_timezone = user_timezone
+        self._conn: aiosqlite.Connection | None = None
+        self._lock = asyncio.Lock()
+
+    async def connect(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = await aiosqlite.connect(self.path, isolation_level=None)
+        self._conn.row_factory = aiosqlite.Row
+        try:
+            await self._apply_pragmas()
+            await self._migrate()
+            await self._rebuild_fts()
+            await self._apply_timezone()
+        except Exception:
+            await self.close()
+            raise
+
+    async def close(self) -> None:
+        if self._conn is not None:
+            await self._conn.close()
+            self._conn = None
+
+    async def execute(self, sql: str, parameters: Sequence[Any] = ()) -> None:
+        async with self._lock:
+            conn = self._connection()
+            await conn.execute("BEGIN IMMEDIATE")
+            try:
+                await conn.execute(sql, parameters)
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+
+    async def fetchone(self, sql: str, parameters: Sequence[Any] = ()) -> aiosqlite.Row | None:
+        async with self._lock:
+            cursor = await self._connection().execute(sql, parameters)
+            row = await cursor.fetchone()
+            await cursor.close()
+            return row
+
+    async def fetchall(self, sql: str, parameters: Sequence[Any] = ()) -> list[aiosqlite.Row]:
+        async with self._lock:
+            cursor = await self._connection().execute(sql, parameters)
+            rows = await cursor.fetchall()
+            await cursor.close()
+            return list(rows)
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator["Transaction"]:
+        async with self._lock:
+            conn = self._connection()
+            await conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield Transaction(conn)
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+
+    async def backup_to(self, destination: Path) -> None:
+        """Copy a consistent snapshot with the SQLite online backup API."""
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        target = sqlite3.connect(destination, check_same_thread=False)
+        try:
+            async with self._lock:
+                await self._connection().backup(target)
+        finally:
+            target.close()
+
+    async def rebuild_fts(self) -> None:
+        await self.execute("INSERT INTO fts_search(fts_search) VALUES('rebuild')")
+
+    def _connection(self) -> aiosqlite.Connection:
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        return self._conn
+
+    async def _apply_pragmas(self) -> None:
+        conn = self._connection()
+        cursor = await conn.execute("PRAGMA journal_mode=WAL")
+        journal_row = await cursor.fetchone()
+        await cursor.close()
+        await conn.execute("PRAGMA foreign_keys=ON")
+        await conn.execute("PRAGMA synchronous=NORMAL")
+        await conn.execute("PRAGMA busy_timeout=5000")
+        await conn.execute("PRAGMA temp_store=MEMORY")
+        await conn.execute("PRAGMA cache_size=-20000")
+        cursor = await conn.execute("PRAGMA foreign_keys")
+        fk_row = await cursor.fetchone()
+        await cursor.close()
+        journal = str(journal_row[0]).lower() if journal_row is not None else ""
+        foreign_keys = int(fk_row[0]) if fk_row is not None else 0
+        if journal != "wal" or foreign_keys != 1:
+            raise RuntimeError(
+                f"SQLite pragma check failed: journal_mode={journal!r} foreign_keys={foreign_keys}"
+            )
+
+    async def _migrate(self) -> None:
+        conn = self._connection()
+        cursor = await conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_meta'"
+        )
+        existing = await cursor.fetchone()
+        await cursor.close()
+        if existing is not None:
+            cursor = await conn.execute("SELECT value FROM app_meta WHERE key = 'schema_version'")
+            row = await cursor.fetchone()
+            await cursor.close()
+            version = None if row is None else str(row[0])
+            if version != SCHEMA_VERSION:
+                raise RuntimeError(f"Unsupported schema_version: {version}")
+            return
+
+        statements = split_sql(MIGRATION_PATH.read_text(encoding="utf-8"))
+        await conn.execute("BEGIN IMMEDIATE")
+        try:
+            for statement in statements:
+                await conn.execute(statement)
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+
+    async def _rebuild_fts(self) -> None:
+        conn = self._connection()
+        await conn.execute("BEGIN IMMEDIATE")
+        try:
+            await conn.execute("INSERT INTO fts_search(fts_search) VALUES('rebuild')")
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+
+    async def _apply_timezone(self) -> None:
+        if not self.user_timezone or self.user_timezone == DEFAULT_TIMEZONE:
+            return
+        conn = self._connection()
+        cursor = await conn.execute("SELECT value FROM app_meta WHERE key = 'timezone'")
+        row = await cursor.fetchone()
+        await cursor.close()
+        if row is None or str(row[0]) != DEFAULT_TIMEZONE:
+            return
+        await conn.execute("BEGIN IMMEDIATE")
+        try:
+            await conn.execute(
+                "UPDATE app_meta SET value = ? WHERE key = 'timezone'",
+                (self.user_timezone,),
+            )
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+
+
+class Transaction:
+    def __init__(self, conn: aiosqlite.Connection) -> None:
+        self._conn = conn
+
+    async def execute(self, sql: str, parameters: Sequence[Any] = ()) -> None:
+        cursor = await self._conn.execute(sql, parameters)
+        await cursor.close()
+
+    async def fetchone(self, sql: str, parameters: Sequence[Any] = ()) -> aiosqlite.Row | None:
+        cursor = await self._conn.execute(sql, parameters)
+        row = await cursor.fetchone()
+        await cursor.close()
+        return row
+
+    async def fetchall(self, sql: str, parameters: Sequence[Any] = ()) -> list[aiosqlite.Row]:
+        cursor = await self._conn.execute(sql, parameters)
+        rows = await cursor.fetchall()
+        await cursor.close()
+        return list(rows)

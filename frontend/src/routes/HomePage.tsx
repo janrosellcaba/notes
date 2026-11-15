@@ -1,0 +1,111 @@
+import { useEffect } from "react";
+
+import { useUi } from "../stores/ui";
+import { useHomeFeed } from "../lib/queries";
+import { Button } from "../components/ui/Button";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PinnedCard } from "../components/items/PinnedCard";
+import { TaskRow } from "../components/items/TaskRow";
+import { ChevronDown } from "lucide-react";
+
+export function HomePage() {
+  const openCapture = useUi((state) => state.openCapture);
+  const calendarOpen = useUi((state) => state.calendarSlotOpen);
+  const setCalendarOpen = useUi((state) => state.setCalendarSlotOpen);
+  const home = useHomeFeed();
+  useEffect(() => {
+    const idle = window.requestIdleCallback?.(() => {
+      void import("../components/editor/NoteSurface");
+      void import("../components/editor/codeMirror");
+    });
+    if (idle !== undefined) {
+      return () => window.cancelIdleCallback(idle);
+    }
+    const timer = window.setTimeout(() => {
+      void import("../components/editor/NoteSurface");
+      void import("../components/editor/codeMirror");
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const pinned = home.data?.pinned ?? [];
+  const tasks = home.data?.today_tasks ?? [];
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[13px] text-fg-muted">Capture</h2>
+          <Button variant="ghost" className="px-2" onClick={() => openCapture({ type: "project", contextId: null })}>
+            + New project
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <button
+            type="button"
+            className="flex min-h-[88px] flex-col items-start justify-between rounded-[10px] bg-fg px-4 py-3 text-left text-canvas md:col-span-2"
+            onClick={() => openCapture({ type: "note", projectId: null })}
+          >
+            + Quick Note
+          </button>
+          <button
+            type="button"
+            className="flex min-h-[88px] flex-col items-start justify-between rounded-[10px] bg-fg px-4 py-3 text-left text-canvas md:col-span-2"
+            onClick={() => openCapture({ type: "task" })}
+          >
+            + Quick Task
+          </button>
+          <button
+            type="button"
+            className="col-span-2 min-h-11 rounded-[10px] border border-border-strong bg-interactive px-4 text-left md:col-span-4"
+            onClick={() => openCapture({ type: "transcript", projectId: null })}
+          >
+            + Paste transcript
+          </button>
+        </div>
+      </section>
+      <section className="flex flex-col gap-6">
+        <h2 className="text-[13px] text-fg-muted">Focus</h2>
+        {home.isPending ? <p className="font-mono text-[13px] text-fg-muted">Loading…</p> : null}
+        {home.isError ? <p className="text-fg-secondary">Could not load home.</p> : null}
+        {pinned.length > 0 ? (
+          <div>
+            <h3 className="mb-2 text-[14px]">Pinned</h3>
+            <ul className="flex gap-3 overflow-x-auto md:grid md:grid-cols-3 md:overflow-visible">
+              {pinned.map((item) => (
+                <PinnedCard key={item.id} item={item} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div>
+          <h3 className="mb-2 text-[14px]">Today</h3>
+          {tasks.length === 0 ? <EmptyState>Nothing due today</EmptyState> : null}
+          <ul>
+            {tasks.map((item) => (
+              <TaskRow key={item.id} item={item} />
+            ))}
+          </ul>
+        </div>
+        <section className="rounded-[10px] border border-border bg-elevated">
+          <button
+            type="button"
+            className="flex min-h-11 w-full items-center justify-between px-4 text-left"
+            aria-expanded={calendarOpen}
+            onClick={() => setCalendarOpen(!calendarOpen)}
+          >
+            <span>
+              <span className="block">Up next</span>
+              <span className="block text-[13px] text-fg-muted">Calendar sync ready</span>
+            </span>
+            <ChevronDown size={16} className={calendarOpen ? "rotate-180" : undefined} />
+          </button>
+          {calendarOpen ? (
+            <p className="border-t border-border-subtle px-4 py-3 text-fg-secondary">
+              Calendar sync will list the next meetings here.
+            </p>
+          ) : null}
+        </section>
+      </section>
+    </div>
+  );
+}
