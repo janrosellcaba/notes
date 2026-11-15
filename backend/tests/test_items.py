@@ -221,3 +221,47 @@ async def test_oversized_title_is_413_and_task_fields_on_a_note_are_422(
     assert invalid.json()["detail"][0]["loc"] == ["body", "status"]
     listed = await http.get("/api/items", params={"project_id": "none"})
     assert listed.json()["items"] == []
+
+
+async def test_a_task_can_omit_project_and_keep_optional_details(
+    authed: tuple[object, AsyncClient],
+) -> None:
+    _app, http = authed
+    created = await http.post(
+        "/api/items",
+        json={
+            "type": "task",
+            "title": "Call the client",
+            "priority": "high",
+            "due_on": "2026-11-20",
+            "starts_on": "2026-11-18",
+            "assignee": "Marta",
+        },
+    )
+    assert created.status_code == 201, created.text
+    task = created.json()
+    assert task["project"] is None
+    assert task["context"] is None
+    assert task["starts_on"] == "2026-11-18"
+    assert task["assignee"] == "Marta"
+    assert task["priority"] == "high"
+    listed = await http.get("/api/items", params={"type": "task", "include_done": True, "limit": 50})
+    assert task["id"] in {item["id"] for item in listed.json()["items"]}
+
+    child = await http.post(
+        "/api/items",
+        json={"type": "task", "title": "Send the notes", "parent_id": task["id"]},
+    )
+    assert child.status_code == 201, child.text
+    assert child.json()["parent_id"] == task["id"]
+    parent = await http.get(f"/api/items/{task['id']}")
+    assert parent.json()["subtask_total"] == 1
+    assert parent.json()["subtask_done"] == 0
+    nested = await http.post(
+        "/api/items",
+        json={"type": "task", "title": "Too deep", "parent_id": child.json()["id"]},
+    )
+    assert nested.status_code == 422
+    assert nested.json()["detail"][0]["loc"] == ["body", "parent_id"]
+    note = await http.post("/api/items", json={"type": "note", "title": "Nope", "assignee": "Marta"})
+    assert note.status_code == 422

@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Board } from "../components/kanban/Board";
-import { TaskEditor } from "../components/items/TaskEditor";
+import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
+import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
 import { PriorityMark } from "../components/ui/PriorityMark";
 import { groupTasks, todayISO } from "../lib/dates";
@@ -19,11 +20,13 @@ export function TasksPage() {
   const setTasksView = useUi((state) => state.setTasksView);
   const contextId = useUi((state) => state.contextId);
   const pushToast = useUi((state) => state.pushToast);
+  const taskFields = useUi((state) => state.taskFields);
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const view = params.get("view") === "board" ? "board" : "list";
   const today = todayISO();
   const [editing, setEditing] = useState<Item | null>(null);
+  const [creating, setCreating] = useState(false);
   const filters = useMemo<ItemFilters>(() => {
     const next: ItemFilters = {
       type: "task",
@@ -35,7 +38,8 @@ export function TasksPage() {
     return next;
   }, [view, today, contextId]);
   const tasks = useQuery({ queryKey: queryKeys.items(filters), queryFn: () => listItems(filters) });
-  const groups = groupTasks(tasks.data?.items ?? [], today);
+  const nested = nestTasks(tasks.data?.items ?? []);
+  const groups = groupTasks(nested.roots, today);
   const sections = [
     [t("tasks.overdue"), groups.overdue],
     [t("tasks.today"), groups.today],
@@ -68,6 +72,10 @@ export function TasksPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[20px]">{t("tasks.title")}</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setCreating(true)}>
+            {t("tasks.new")}
+          </Button>
         <div className="flex rounded-[8px] border border-border p-1">
           {(["list", "board"] as const).map((option) => (
             <button
@@ -80,9 +88,10 @@ export function TasksPage() {
             </button>
           ))}
         </div>
+        </div>
       </div>
       {view === "board" ? (
-        <Board items={tasks.data?.items ?? []} projectId={null} showProject />
+        <Board items={nested.roots} projectId={null} showProject={taskFields.project} />
       ) : (
         <div className="flex flex-col gap-6">
           {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">{t("tasks.empty")}</p> : null}
@@ -92,25 +101,17 @@ export function TasksPage() {
                 <h2 className="mb-2 text-[13px] text-fg-muted">{label}</h2>
                 <ul>
                   {rows.map((item) => (
-                    <li key={item.id} className="flex min-h-11 items-center gap-3 rounded-[8px] px-1 hover:bg-interactive">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={item.status === "done"}
-                        aria-label={`${t("board.done")} ${item.title || t("common.untitled")}`}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={() => void toggle(item)}
+                    <li key={item.id}>
+                      <TaskRow
+                        item={item}
+                        onOpen={setEditing}
+                        onToggle={(row) => void toggle(row)}
                       />
-                      <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setEditing(item)}>
-                        <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
-                        <span className="font-mono text-[13px] text-fg-muted">{item.due_on ?? ""}</span>
-                        <PriorityMark priority={item.priority} />
-                        <ContextBadge
-                          color={item.project?.context.color ?? "#71717A"}
-                          icon={item.project?.context.icon ?? "layers"}
-                          name={item.project?.name ?? t("inbox.title")}
-                        />
-                      </button>
+                      {(nested.children.get(item.id) ?? []).map((child) => (
+                        <div key={child.id} className="pl-7">
+                          <TaskRow item={child} onOpen={setEditing} onToggle={(row) => void toggle(row)} />
+                        </div>
+                      ))}
                     </li>
                   ))}
                 </ul>
@@ -119,7 +120,69 @@ export function TasksPage() {
           )}
         </div>
       )}
-      {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}
+      {creating ? <TaskCreateDialog onClose={() => setCreating(false)} /> : null}
+    </div>
+  );
+}
+
+function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]> } {
+  const ids = new Set(items.map((item) => item.id));
+  const children = new Map<string, Item[]>();
+  const roots: Item[] = [];
+  for (const item of items) {
+    if (item.parent_id && ids.has(item.parent_id)) {
+      const list = children.get(item.parent_id) ?? [];
+      list.push(item);
+      children.set(item.parent_id, list);
+    } else {
+      roots.push(item);
+    }
+  }
+  return { roots, children };
+}
+
+function TaskRow({
+  item,
+  onOpen,
+  onToggle,
+}: {
+  item: Item;
+  onOpen: (item: Item) => void;
+  onToggle: (item: Item) => void;
+}) {
+  const taskFields = useUi((state) => state.taskFields);
+  const { t } = useI18n();
+  const badge = item.project
+    ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
+    : item.context
+      ? { color: item.context.color, icon: item.context.icon, name: item.context.name }
+      : null;
+  return (
+    <div className="flex min-h-11 items-center gap-3 rounded-[8px] px-1 hover:bg-interactive">
+      <input
+        type="checkbox"
+        className="h-4 w-4"
+        checked={item.status === "done"}
+        aria-label={`${t("board.done")} ${item.title || t("common.untitled")}`}
+        onClick={(event) => event.stopPropagation()}
+        onChange={() => onToggle(item)}
+      />
+      <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpen(item)}>
+        <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
+        {taskFields.subtasks && item.subtask_total > 0 ? (
+          <span className="font-mono text-[12px] text-fg-muted">
+            {item.subtask_done}/{item.subtask_total}
+          </span>
+        ) : null}
+        {taskFields.assignee && item.assignee ? <span className="truncate text-[13px] text-fg-secondary">{item.assignee}</span> : null}
+        {taskFields.starts && item.starts_on ? <span className="font-mono text-[13px] text-fg-muted">{item.starts_on}</span> : null}
+        {taskFields.due && item.due_on ? <span className="font-mono text-[13px] text-fg-muted">{item.due_on}</span> : null}
+        {taskFields.priority ? <PriorityMark priority={item.priority} /> : null}
+        {taskFields.project && badge ? (
+          <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} />
+        ) : null}
+      </button>
     </div>
   );
 }

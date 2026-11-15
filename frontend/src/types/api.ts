@@ -65,6 +65,12 @@ export type Item = {
   recurrence: "weekly" | "monthly" | null;
   recurrence_weekday: number | null;
   recurrence_monthday: number | null;
+  context: ContextRef | null;
+  parent_id: string | null;
+  starts_on: string | null;
+  assignee: string | null;
+  subtask_total: number;
+  subtask_done: number;
   created_at: string;
   updated_at: string;
 };
@@ -92,6 +98,9 @@ export type ItemCreate = {
   status?: ItemStatus | null;
   priority?: ItemPriority | null;
   due_on?: string | null;
+  starts_on?: string | null;
+  assignee?: string | null;
+  parent_id?: string | null;
   pinned?: boolean;
   transcript_raw?: string | null;
   external_url?: string | null;
@@ -104,6 +113,10 @@ export type ItemPatch = {
   status?: ItemStatus;
   priority?: ItemPriority;
   due_on?: string | null;
+  starts_on?: string | null;
+  assignee?: string | null;
+  parent_id?: string | null;
+  context_id?: string | null;
   pinned?: boolean;
   transcript_raw?: string | null;
   external_url?: string | null;
@@ -121,6 +134,8 @@ export type ItemFilters = {
   due?: "overdue" | "today" | "upcoming" | "none";
   today?: string;
   include_done?: boolean;
+  parent_id?: string;
+  roots?: boolean;
   archived?: boolean;
   trashed?: boolean;
   limit?: number;

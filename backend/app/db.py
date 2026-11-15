@@ -223,6 +223,9 @@ class Database:
             "recurrence_weekday": "INTEGER",
             "recurrence_monthday": "INTEGER",
             "context_id": "TEXT",
+            "parent_id": "TEXT",
+            "starts_on": "TEXT",
+            "assignee": "TEXT",
         }
         for name, kind in additions.items():
             if name not in present:
@@ -249,6 +252,13 @@ class Database:
             CREATE UNIQUE INDEX IF NOT EXISTS items_daily_on
             ON items(daily_on)
             WHERE daily_on IS NOT NULL AND deleted_at IS NULL
+            """
+        )
+        await conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS items_parent
+            ON items(parent_id)
+            WHERE parent_id IS NOT NULL AND deleted_at IS NULL
             """
         )
         cursor = await conn.execute("PRAGMA table_info(contexts)")

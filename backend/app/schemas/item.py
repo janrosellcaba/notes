@@ -45,6 +45,12 @@ class Item(BaseModel):
     recurrence: Literal["weekly", "monthly"] | None = None
     recurrence_weekday: int | None = None
     recurrence_monthday: int | None = None
+    context: ContextRef | None = None
+    parent_id: str | None = None
+    starts_on: str | None = None
+    assignee: str | None = None
+    subtask_total: int = 0
+    subtask_done: int = 0
     created_at: str
     updated_at: str
 
@@ -71,6 +77,9 @@ class ItemCreate(BaseModel):
     recurrence: Literal["weekly", "monthly"] | None = None
     recurrence_weekday: int | None = Field(default=None, ge=0, le=6)
     recurrence_monthday: int | None = Field(default=None, ge=1, le=31)
+    parent_id: str | None = None
+    starts_on: str | None = None
+    assignee: str | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -79,9 +88,13 @@ class ItemUpdate(BaseModel):
     title: str | None = None
     body_md: str | None = None
     project_id: str | None = None
+    context_id: str | None = None
     status: ItemStatus | None = None
     priority: ItemPriority | None = None
     due_on: str | None = None
+    parent_id: str | None = None
+    starts_on: str | None = None
+    assignee: str | None = None
     pinned: bool | None = None
     transcript_raw: str | None = None
     external_url: str | None = None

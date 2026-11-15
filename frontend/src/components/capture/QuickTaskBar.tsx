@@ -73,6 +73,12 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
       recurrence: null,
       recurrence_weekday: null,
       recurrence_monthday: null,
+      context: null,
+      parent_id: null,
+      starts_on: null,
+      assignee: null,
+      subtask_total: 0,
+      subtask_done: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

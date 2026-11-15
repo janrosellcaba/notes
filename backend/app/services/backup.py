@@ -36,11 +36,11 @@ async def export_json(db: Database) -> tuple[dict[str, Any], str]:
     )
     items = await db.fetchall(
         """
-        SELECT id, type, title, body_md, project_id, status, priority, due_on, completed_at,
+        SELECT id, type, title, body_md, project_id, context_id, status, priority, due_on, completed_at,
                position, pinned, transcript_raw, ai_summary, ai_action_items, calendar_event_id,
                calendar_provider, external_url, source_item_id, source_selection, archived_at,
                deleted_at, daily_on, recurrence, recurrence_weekday, recurrence_monthday,
-               created_at, updated_at
+               parent_id, starts_on, assignee, created_at, updated_at
         FROM items ORDER BY created_at, id
         """
     )

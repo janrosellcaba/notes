@@ -40,6 +40,8 @@ async def list_items(
     trashed: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
+    parent_id: str | None = None,
+    roots: bool = False,
     db: Database = Depends(get_db),
 ) -> ItemList:
     found, next_cursor = await items.list_items(
@@ -56,6 +58,8 @@ async def list_items(
         trashed=trashed,
         limit=limit,
         cursor=cursor,
+        parent_id=parent_id,
+        roots=roots,
     )
     return ItemList(items=found, next_cursor=next_cursor)
 

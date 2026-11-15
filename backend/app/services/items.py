@@ -29,6 +29,7 @@ from app.services.projects import require_active_project
 Reader = Database | Transaction
 
 TITLE_MAX = 500
+ASSIGNEE_MAX = 80
 BODY_MAX = 500_000
 TRANSCRIPT_MAX = 2_000_000
 SELECTION_MAX = 2_000
@@ -52,9 +53,15 @@ i.id, i.type, i.title, i.body_md, i.status, i.priority, i.due_on, i.completed_at
 i.position, i.pinned, i.transcript_raw, i.ai_summary, i.ai_action_items,
 i.calendar_event_id, i.calendar_provider, i.external_url, i.source_item_id,
 i.source_selection, i.archived_at, i.deleted_at, i.daily_on, i.recurrence,
-i.recurrence_weekday, i.recurrence_monthday, i.created_at, i.updated_at,
+i.recurrence_weekday, i.recurrence_monthday, i.parent_id, i.starts_on, i.assignee,
+i.created_at, i.updated_at,
 p.id AS proj_id, p.name AS proj_name, p.color AS proj_color,
-c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color, c.icon AS ctx_icon
+c.id AS ctx_id, c.slug AS ctx_slug, c.name AS ctx_name, c.color AS ctx_color, c.icon AS ctx_icon,
+(SELECT COUNT(*) FROM items s
+  WHERE s.parent_id = i.id AND s.deleted_at IS NULL AND s.archived_at IS NULL) AS subtask_total,
+(SELECT COUNT(*) FROM items s
+  WHERE s.parent_id = i.id AND s.deleted_at IS NULL AND s.archived_at IS NULL
+    AND s.status = 'done') AS subtask_done
 """
 _FROM = """
 FROM items i
@@ -100,6 +107,15 @@ def to_item(row: Any) -> Item:
             ),
         )
     position = None if row["position"] is None else float(row["position"])
+    context = None
+    if row["ctx_id"] is not None:
+        context = ContextRef(
+            id=row["ctx_id"],
+            slug=row["ctx_slug"],
+            name=row["ctx_name"],
+            color=row["ctx_color"],
+            icon=row["ctx_icon"],
+        )
     return Item(
         id=row["id"],
         type=row["type"],
@@ -126,6 +142,12 @@ def to_item(row: Any) -> Item:
         recurrence=row["recurrence"],
         recurrence_weekday=row["recurrence_weekday"],
         recurrence_monthday=row["recurrence_monthday"],
+        context=context,
+        parent_id=row["parent_id"],
+        starts_on=row["starts_on"],
+        assignee=row["assignee"],
+        subtask_total=int(row["subtask_total"] or 0),
+        subtask_done=int(row["subtask_done"] or 0),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -179,6 +201,8 @@ async def list_items(
     trashed: bool,
     limit: int,
     cursor: str | None,
+    parent_id: str | None = None,
+    roots: bool = False,
 ) -> tuple[list[Item], str | None]:
     if context_id is not None:
         await require_context(db, context_id)
@@ -204,6 +228,11 @@ async def list_items(
     if context_id is not None:
         clauses.append("(c.id = ? OR (i.project_id IS NULL AND i.context_id IS NULL))")
         params.append(context_id)
+    if parent_id is not None:
+        clauses.append("i.parent_id = ?")
+        params.append(parent_id)
+    elif roots:
+        clauses.append("i.parent_id IS NULL")
     if pinned is not None:
         clauses.append("i.pinned = ?")
         params.append(1 if pinned else 0)
@@ -290,6 +319,43 @@ async def _next_position(tx: Reader, project_id: str | None, status: str) -> flo
     return float(row["pos"])
 
 
+def _assignee(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if len(cleaned) > ASSIGNEE_MAX:
+        payload_too_large("assignee", ASSIGNEE_MAX)
+    return cleaned or None
+
+
+async def _check_parent(db: Reader, parent_id: str | None, *, child_id: str | None) -> None:
+    if parent_id is None:
+        return
+    if child_id is not None and parent_id == child_id:
+        field_error("parent_id", "A task cannot be its own parent")
+    row = await db.fetchone(
+        "SELECT type, parent_id, deleted_at, archived_at FROM items WHERE id = ?",
+        (parent_id,),
+    )
+    if (
+        row is None
+        or row["deleted_at"] is not None
+        or row["archived_at"] is not None
+        or row["type"] != "task"
+    ):
+        field_error("parent_id", "Parent must be an active task")
+    if row["parent_id"] is not None:
+        field_error("parent_id", "Subtasks cannot contain subtasks")
+    if child_id is None:
+        return
+    child = await db.fetchone(
+        "SELECT id FROM items WHERE parent_id = ? AND deleted_at IS NULL LIMIT 1",
+        (child_id,),
+    )
+    if child is not None:
+        field_error("parent_id", "Move its subtasks first")
+
+
 def _prepare_create(body: ItemCreate) -> dict[str, Any]:
     _limit_text("title", body.title, TITLE_MAX)
     _limit_text("body_md", body.body_md, BODY_MAX)
@@ -309,6 +375,21 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
         field_error("transcript_raw", "Tasks cannot include a transcript")
     if body.type == "task" and body.pinned:
         field_error("pinned", "Tasks cannot be pinned")
+    starts_on = body.starts_on
+    assignee = _assignee(body.assignee)
+    parent_id = _blank(body.parent_id)
+    if body.type != "task" and starts_on is not None:
+        field_error("starts_on", "Only tasks can set a start date")
+    if body.type != "task" and assignee is not None:
+        field_error("assignee", "Only tasks can set an assignee")
+    if body.type != "task" and parent_id is not None:
+        field_error("parent_id", "Only tasks can have a parent")
+    if body.type != "task":
+        starts_on = None
+        assignee = None
+        parent_id = None
+    elif starts_on is not None and not _valid_day(starts_on):
+        field_error("starts_on", "starts_on must be YYYY-MM-DD")
     title = body.title
     status: ItemStatus | None = None
     priority: ItemPriority | None = None
@@ -358,6 +439,9 @@ def _prepare_create(body: ItemCreate) -> dict[str, Any]:
         "status": status,
         "priority": priority,
         "due_on": due_on,
+        "starts_on": starts_on,
+        "assignee": assignee,
+        "parent_id": parent_id,
         "position": position,
         "pinned": 1 if pinned else 0,
         "transcript_raw": transcript,
@@ -394,6 +478,8 @@ async def create_item(
             await require_active_project(tx, prepared["project_id"])
         elif prepared["context_id"] is not None:
             await require_context(tx, prepared["context_id"])
+        if prepared["parent_id"] is not None:
+            await _check_parent(tx, prepared["parent_id"], child_id=None)
         if prepared["type"] == "task":
             prepared["position"] = await _next_position(tx, prepared["project_id"], prepared["status"])
         now = utc_now()
@@ -404,8 +490,8 @@ async def create_item(
             INSERT INTO items (
               id, type, title, body_md, project_id, context_id, status, priority, due_on, completed_at,
               position, pinned, transcript_raw, external_url, recurrence, recurrence_weekday,
-              recurrence_monthday, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              recurrence_monthday, parent_id, starts_on, assignee, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item_id,
@@ -425,6 +511,9 @@ async def create_item(
                 prepared["recurrence"],
                 prepared["recurrence_weekday"],
                 prepared["recurrence_monthday"],
+                prepared["parent_id"],
+                prepared["starts_on"],
+                prepared["assignee"],
                 now,
                 now,
             ),
@@ -459,9 +548,6 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
         _limit_text("body_md", changes["body_md"], BODY_MAX)
     if "transcript_raw" in changes:
         _limit_text("transcript_raw", changes["transcript_raw"], TRANSCRIPT_MAX)
-    if "project_id" in changes and changes["project_id"] is not None:
-        await require_active_project(db, changes["project_id"])
-
     sets: dict[str, Any] = {}
     if "title" in changes:
         title = changes["title"]
@@ -470,8 +556,23 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
         sets["title"] = str(title).strip() if current.type == "task" else title
     if "body_md" in changes:
         sets["body_md"] = changes["body_md"]
-    if "project_id" in changes:
-        sets["project_id"] = changes["project_id"]
+    if "project_id" in changes or "context_id" in changes:
+        project_id = (
+            changes["project_id"]
+            if "project_id" in changes
+            else None if current.project is None else current.project.id
+        )
+        own_context = None if current.project is not None or current.context is None else current.context.id
+        context_id = changes["context_id"] if "context_id" in changes else own_context
+        if project_id is not None:
+            await require_active_project(db, project_id)
+            sets["project_id"] = project_id
+            sets["context_id"] = None
+        else:
+            if context_id is not None:
+                await require_context(db, context_id)
+            sets["project_id"] = None
+            sets["context_id"] = context_id
     if "external_url" in changes:
         sets["external_url"] = _blank(changes["external_url"])
     if "status" in changes:
@@ -501,6 +602,28 @@ async def update_item(db: Database, item_id: str, changes: dict[str, Any]) -> It
             field_error("due_on", "due_on must be YYYY-MM-DD")
         else:
             sets["due_on"] = changes["due_on"]
+    if "starts_on" in changes:
+        if current.type != "task":
+            if changes["starts_on"] is not None:
+                field_error("starts_on", "Only tasks can set a start date")
+        elif changes["starts_on"] is not None and not _valid_day(changes["starts_on"]):
+            field_error("starts_on", "starts_on must be YYYY-MM-DD")
+        else:
+            sets["starts_on"] = changes["starts_on"]
+    if "assignee" in changes:
+        if current.type != "task":
+            if changes["assignee"] is not None:
+                field_error("assignee", "Only tasks can set an assignee")
+        else:
+            sets["assignee"] = _assignee(changes["assignee"])
+    if "parent_id" in changes:
+        if current.type != "task":
+            if changes["parent_id"] is not None:
+                field_error("parent_id", "Only tasks can have a parent")
+        else:
+            parent_id = _blank(changes["parent_id"])
+            await _check_parent(db, parent_id, child_id=item_id)
+            sets["parent_id"] = parent_id
     if "pinned" in changes:
         if current.type == "task" and changes["pinned"]:
             field_error("pinned", "Tasks cannot be pinned")
@@ -571,24 +694,28 @@ async def _spawn_next(db: Database, item: Item) -> None:
         return
     position = await _next_position(db, project_id, "todo")
     now = utc_now()
+    context_id = None if item.project is not None or item.context is None else item.context.id
     await db.execute(
         """
         INSERT INTO items (
-          id, type, title, body_md, project_id, status, priority, due_on, position, pinned,
-          recurrence, recurrence_weekday, recurrence_monthday, created_at, updated_at
-        ) VALUES (?, 'task', ?, ?, ?, 'todo', ?, ?, ?, 0, ?, ?, ?, ?, ?)
+          id, type, title, body_md, project_id, context_id, status, priority, due_on, position, pinned,
+          recurrence, recurrence_weekday, recurrence_monthday, parent_id, assignee, created_at, updated_at
+        ) VALUES (?, 'task', ?, ?, ?, ?, 'todo', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             str(uuid4()),
             item.title,
             item.body_md,
             project_id,
+            context_id,
             item.priority or "none",
             due,
             position,
             item.recurrence,
             item.recurrence_weekday,
             item.recurrence_monthday,
+            item.parent_id,
+            item.assignee,
             now,
             now,
         ),

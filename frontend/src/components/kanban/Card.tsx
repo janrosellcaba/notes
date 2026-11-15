@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { Link } from "react-router";
 
 import { useI18n } from "../../lib/i18n";
+import { useUi } from "../../stores/ui";
 import type { Item } from "../../types/api";
 import { ContextBadge } from "../ui/ContextBadge";
 import { PriorityMark } from "../ui/PriorityMark";
@@ -28,6 +29,12 @@ export function TaskCard({
   };
 }) {
   const { t } = useI18n();
+  const taskFields = useUi((state) => state.taskFields);
+  const badge = item.project
+    ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
+    : item.context
+      ? { color: item.context.color, icon: item.context.icon, name: item.context.name }
+      : null;
   return (
     <article
       ref={drag?.setNodeRef}
@@ -40,15 +47,16 @@ export function TaskCard({
         <Link to={`/item/${item.id}`} className="min-w-0 flex-1 font-medium">
           {item.title || t("common.untitled")}
         </Link>
-        <PriorityMark priority={item.priority ?? "none"} />
+        {taskFields.priority ? <PriorityMark priority={item.priority ?? "none"} /> : null}
       </div>
-      {showProject ? (
+      {taskFields.subtasks && item.subtask_total > 0 ? (
+        <p className="mt-1 font-mono text-[12px] text-fg-muted">
+          {item.subtask_done}/{item.subtask_total}
+        </p>
+      ) : null}
+      {showProject && taskFields.project && badge ? (
         <div className="mt-2">
-          <ContextBadge
-            color={item.project?.context.color ?? "#71717A"}
-            icon={item.project?.context.icon ?? "layers"}
-            name={item.project?.name ?? t("inbox.title")}
-          />
+          <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} />
         </div>
       ) : null}
       <div className="mt-1">

@@ -19,6 +19,7 @@ import {
   patchSettings,
 } from "../lib/api";
 import { useI18n, type MessageKey } from "../lib/i18n";
+import { TASK_FIELDS, type TaskField } from "../lib/taskFields";
 import { modKeyLabel } from "../lib/shortcuts";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts } from "../lib/queries";
@@ -47,6 +48,8 @@ export function SettingsPage() {
   const contextId = useUi((state) => state.contextId);
   const setContextId = useUi((state) => state.setContextId);
   const boardOrder = useUi((state) => state.boardOrder);
+  const taskFields = useUi((state) => state.taskFields);
+  const setTaskField = useUi((state) => state.setTaskField);
   const moveBoardColumn = useUi((state) => state.moveBoardColumn);
   const setTourStep = useUi((state) => state.setTourStep);
   const { t, locale, setLocale } = useI18n();
@@ -322,6 +325,25 @@ export function SettingsPage() {
                 ))}
               </ul>
             </div>
+            <div className="mt-4 border-b border-border-subtle pb-4">
+              <p className="text-[13px] text-fg-secondary">{t("settings.taskFields")}</p>
+              <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.taskFieldsDetail")}</p>
+              <ul className="mt-3 flex flex-col">
+                {TASK_FIELDS.map((field) => (
+                  <li key={field}>
+                    <label className="flex min-h-8 items-center justify-between gap-3 text-[13px]">
+                      {t(taskFieldLabel(field))}
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={taskFields[field]}
+                        onChange={(event) => setTaskField(field, event.target.checked)}
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label htmlFor="timezone" className="text-[13px] text-fg-secondary">
                 {t("settings.timezone")}
@@ -464,6 +486,18 @@ export function SettingsPage() {
       </div>
     </div>
   );
+}
+
+function taskFieldLabel(field: TaskField): MessageKey {
+  const labels: Record<TaskField, MessageKey> = {
+    due: "settings.showDue",
+    starts: "settings.showStarts",
+    priority: "settings.showPriority",
+    assignee: "settings.showAssignee",
+    project: "settings.showProject",
+    subtasks: "settings.showSubtasks",
+  };
+  return labels[field];
 }
 
 function Panel({ id, title, description, children }: { id: string; title: string; description: string; children: ReactNode }) {

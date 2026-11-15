@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { readBoardOrder, writeBoardOrder, type BoardStatus } from "../lib/board";
+import { readTaskFields, writeTaskFields, type TaskField, type TaskFieldVisibility } from "../lib/taskFields";
 import { applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
 
 export type TasksView = "list" | "board";
@@ -57,6 +58,7 @@ type UiState = {
   calendarSlotOpen: boolean;
   theme: Theme;
   boardOrder: BoardStatus[];
+  taskFields: TaskFieldVisibility;
   tourStep: number | null;
   paletteOpen: boolean;
   capture: CaptureRequest | null;
@@ -70,6 +72,7 @@ type UiState = {
   setTheme: (theme: Theme) => void;
   setBoardOrder: (order: BoardStatus[]) => void;
   moveBoardColumn: (status: BoardStatus, direction: -1 | 1) => void;
+  setTaskField: (field: TaskField, shown: boolean) => void;
   setTourStep: (step: number | null) => void;
   setPaletteOpen: (open: boolean) => void;
   openCapture: (capture: CaptureRequest) => void;
@@ -89,6 +92,7 @@ export const useUi = create<UiState>((set, get) => ({
   calendarSlotOpen: readBool(KEYS.calendarSlotOpen, true),
   theme: readTheme(),
   boardOrder: readBoardOrder(),
+  taskFields: readTaskFields(),
   tourStep: null,
   paletteOpen: false,
   capture: null,
@@ -134,6 +138,11 @@ export const useUi = create<UiState>((set, get) => ({
     order[index] = swap;
     writeBoardOrder(order);
     set({ boardOrder: order });
+  },
+  setTaskField: (field, shown) => {
+    const taskFields = { ...get().taskFields, [field]: shown };
+    writeTaskFields(taskFields);
+    set({ taskFields });
   },
   setTourStep: (tourStep) => set({ tourStep }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
