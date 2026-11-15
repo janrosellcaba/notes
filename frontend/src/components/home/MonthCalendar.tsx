@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { IconButton } from "../ui/IconButton";
 import { listItems } from "../../lib/api";
 import { openDaily } from "../../lib/daily";
 import { useI18n } from "../../lib/i18n";
@@ -90,12 +91,12 @@ export function MonthCalendar({ projectId }: { projectId?: string }) {
       <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
         <h2 className="text-[14px] capitalize">{label}</h2>
         <div className="flex gap-1">
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-[8px] text-fg-secondary hover:bg-interactive" aria-label="Previous month" onClick={() => setCursor(new Date(year, month - 1, 1))}>
+          <IconButton label="Previous month" onClick={() => setCursor(new Date(year, month - 1, 1))}>
             <ChevronLeft size={16} />
-          </button>
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-[8px] text-fg-secondary hover:bg-interactive" aria-label="Next month" onClick={() => setCursor(new Date(year, month + 1, 1))}>
+          </IconButton>
+          <IconButton label="Next month" onClick={() => setCursor(new Date(year, month + 1, 1))}>
             <ChevronRight size={16} />
-          </button>
+          </IconButton>
         </div>
       </header>
       <div className="grid grid-cols-7 px-2 py-2">

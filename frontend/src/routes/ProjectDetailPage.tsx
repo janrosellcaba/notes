@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Board } from "../components/kanban/Board";
@@ -7,7 +7,10 @@ import { MonthCalendar } from "../components/home/MonthCalendar";
 import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
 import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PriorityMark } from "../components/ui/PriorityMark";
+import { RowLink } from "../components/ui/RowLink";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { StatusSelect } from "../components/ui/StatusSelect";
 import { Modal } from "../components/ui/Modal";
 import { Popover } from "../components/ui/Popover";
@@ -174,50 +177,58 @@ export function ProjectDetailPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <header className="flex items-center gap-3">
-        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: current.color }} />
-        <h1 className="min-w-0 flex-1 truncate text-[20px]">{current.name}</h1>
-        <ContextBadge color={current.context.color} icon={current.context.icon} name={current.context.name} />
-        <Popover
-          open={menu}
-          onClose={() => {
-            setMenu(false);
-            setConfirmDelete(false);
-          }}
-          className="right-0 left-auto"
-          trigger={
-            <button type="button" className="min-h-11 rounded-[8px] px-3 hover:bg-interactive" aria-label="Project actions" onClick={() => setMenu((open) => !open)}>
-              ···
-            </button>
-          }
-        >
-          <div className="flex min-w-40 flex-col p-1">
-            <button
-              type="button"
-              className="min-h-11 rounded-[8px] px-3 text-left hover:bg-interactive"
-              onClick={() => {
-                setName(current.name);
+      <PageHeader
+        title={
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: current.color }} />
+            <span className="truncate">{current.name}</span>
+          </span>
+        }
+        actions={
+          <>
+            <ContextBadge color={current.context.color} icon={current.context.icon} name={current.context.name} />
+            <Popover
+              open={menu}
+              onClose={() => {
                 setMenu(false);
-                setRenaming(true);
+                setConfirmDelete(false);
               }}
+              className="right-0 left-auto"
+              trigger={
+                <Button variant="consult" aria-label="Project actions" onClick={() => setMenu((open) => !open)}>
+                  ···
+                </Button>
+              }
             >
-              {t("project.rename")}
-            </button>
-            <button type="button" className="min-h-11 rounded-[8px] px-3 text-left hover:bg-interactive" onClick={() => void archive()}>
-              {t("project.archive")}
-            </button>
-            {confirmDelete ? (
-              <button type="button" className="min-h-11 rounded-[8px] px-3 text-left text-status-blocked hover:bg-interactive" onClick={() => void remove()}>
-                {t("project.deleteConfirm")}
-              </button>
-            ) : (
-              <button type="button" className="min-h-11 rounded-[8px] px-3 text-left hover:bg-interactive" onClick={() => setConfirmDelete(true)}>
-                {t("project.delete")}
-              </button>
-            )}
-          </div>
-        </Popover>
-      </header>
+              <div className="flex min-w-40 flex-col p-1">
+                <Button
+                  variant="consult"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setName(current.name);
+                    setMenu(false);
+                    setRenaming(true);
+                  }}
+                >
+                  {t("project.rename")}
+                </Button>
+                <Button variant="consult" className="w-full justify-start" onClick={() => void archive()}>
+                  {t("project.archive")}
+                </Button>
+                {confirmDelete ? (
+                  <Button variant="consult" tone="danger" className="w-full justify-start" onClick={() => void remove()}>
+                    {t("project.deleteConfirm")}
+                  </Button>
+                ) : (
+                  <Button variant="consult" className="w-full justify-start" onClick={() => setConfirmDelete(true)}>
+                    {t("project.delete")}
+                  </Button>
+                )}
+              </div>
+            </Popover>
+          </>
+        }
+      />
       <div className="flex gap-1 border-b border-border-subtle" role="tablist">
         {tabs.map((value) => (
           <button
@@ -225,7 +236,9 @@ export function ProjectDetailPage() {
             type="button"
             role="tab"
             aria-selected={tab === value}
-            className={`min-h-11 rounded-t-[8px] px-3 ${tab === value ? "text-fg" : "text-fg-muted"}`}
+            className={`-mb-px min-h-9 border-b-2 px-3 text-[13px] font-medium ${
+              tab === value ? "border-fg text-fg" : "border-transparent text-fg-muted hover:text-fg"
+            }`}
             onClick={() => selectTab(value)}
           >
             {t(`project.${value}` as MessageKey)}
@@ -234,39 +247,33 @@ export function ProjectDetailPage() {
       </div>
       {tab === "notes" ? (
         <section className="flex flex-col gap-2">
-          <button
-            type="button"
-            className="min-h-11 self-start rounded-[8px] px-2 text-fg-secondary hover:bg-interactive"
-            onClick={() => openCapture({ type: "note", projectId: current.id })}
-          >
-            + {t("project.noteIn")}
-          </button>
-          {(notes.data?.items ?? []).map((item) => (
-            <Link key={item.id} to={`/item/${item.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] px-2 hover:bg-interactive">
-              <span className="truncate">{item.title || t("common.untitled")}</span>
-              <span className="font-mono text-[13px] text-fg-muted">{relativeTime(item.updated_at)}</span>
-            </Link>
-          ))}
+          <Button variant="add" className="self-start" onClick={() => openCapture({ type: "note", projectId: current.id })}>
+            {t("project.noteIn")}
+          </Button>
+          <ul>
+            {(notes.data?.items ?? []).map((item) => (
+              <li key={item.id}>
+                <RowLink to={`/item/${item.id}`} title={item.title || t("common.untitled")} meta={relativeTime(item.updated_at)} />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {tab === "tasks" ? (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="secondary" onClick={() => setCreating(true)}>
+            <Button variant="add" onClick={() => setCreating(true)}>
               {t("tasks.new")}
             </Button>
-            <div className="flex rounded-[8px] border border-border p-1">
-              {(["list", "board"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`min-h-8 rounded-[8px] px-3 text-[13px] ${tasksView === option ? "bg-interactive" : "text-fg-muted"}`}
-                  onClick={() => setTasksView(option)}
-                >
-                  {t(option === "list" ? "tasks.list" : "tasks.board")}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label={t("settings.tasksView")}
+              value={tasksView}
+              onChange={setTasksView}
+              options={[
+                { value: "list", label: t("tasks.list") },
+                { value: "board", label: t("tasks.board") },
+              ]}
+            />
           </div>
           {tasksView === "board" ? (
             <Board items={nested.roots} projectId={current.id} showProject={false} />
@@ -298,19 +305,16 @@ export function ProjectDetailPage() {
       ) : null}
       {tab === "meetings" ? (
         <section className="flex flex-col gap-2">
-          <button
-            type="button"
-            className="min-h-11 self-start rounded-[8px] px-2 text-fg-secondary hover:bg-interactive"
-            onClick={() => openCapture({ type: "meeting", projectId: current.id })}
-          >
-            + {t("home.meeting")}
-          </button>
-          {meetingRows.map((item) => (
-            <Link key={item.id} to={`/item/${item.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-[8px] px-2 hover:bg-interactive">
-              <span className="truncate">{item.title || t("common.untitled")}</span>
-              <span className="font-mono text-[13px] text-fg-muted">{item.created_at.slice(0, 10)}</span>
-            </Link>
-          ))}
+          <Button variant="add" className="self-start" onClick={() => openCapture({ type: "meeting", projectId: current.id })}>
+            {t("home.meeting")}
+          </Button>
+          <ul>
+            {meetingRows.map((item) => (
+              <li key={item.id}>
+                <RowLink to={`/item/${item.id}`} title={item.title || t("common.untitled")} meta={item.created_at.slice(0, 10)} />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {tab === "calendar" ? (
@@ -329,9 +333,14 @@ export function ProjectDetailPage() {
             }}
           >
             <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} />
-            <button type="submit" className="min-h-11 rounded-[8px] bg-fg px-3 text-canvas">
-              Save
-            </button>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="consult" onClick={() => setRenaming(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" variant="go">
+                Save
+              </Button>
+            </div>
           </form>
         </Modal>
       ) : null}

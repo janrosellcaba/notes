@@ -81,10 +81,10 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
           </select>
         </label>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="consult" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" variant="go" disabled={pending}>
             {t("common.create")}
           </Button>
         </div>

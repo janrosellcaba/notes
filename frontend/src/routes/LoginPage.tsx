@@ -87,12 +87,12 @@ export function LoginPage() {
           ) : null}
         </div>
         {error ? <p className="mt-4 text-priority-urgent">{error}</p> : null}
-        <Button type="submit" className="mt-6 w-full" disabled={pending} aria-busy={pending}>
+        <Button type="submit" variant="go" className="mt-6 w-full" disabled={pending} aria-busy={pending}>
           {creating ? t("login.create") : t("login.continue")}
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant="consult"
           className="mt-2 w-full"
           onClick={() => {
             setCreating((value) => !value);

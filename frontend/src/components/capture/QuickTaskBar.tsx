@@ -216,7 +216,7 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
             </ul>
           </Popover>
         </div>
-        <Button type="submit" disabled={title.trim().length === 0}>
+        <Button type="submit" variant="go" disabled={title.trim().length === 0}>
           {t("tasks.create")}
         </Button>
       </form>

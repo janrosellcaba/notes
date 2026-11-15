@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NoteSurface from "../components/editor/NoteSurface";
 import { ProjectPill } from "../components/editor/ProjectPill";
 import { TranscriptDrawer } from "../components/editor/TranscriptDrawer";
+import { Button } from "../components/ui/Button";
 import { extractTask, getItem, patchItem, restoreItem } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
@@ -142,9 +143,9 @@ export default function ItemPage() {
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 pb-3">
-        <button type="button" className="min-h-8 rounded-[8px] px-2 text-[13px] text-fg-secondary hover:bg-interactive" onClick={() => void navigate(-1)}>
+        <Button variant="consult" onClick={() => void navigate(-1)}>
           {t("editor.back")}
-        </button>
+        </Button>
         <ProjectPill
           projectId={draft.projectId}
           projects={projects.data?.projects ?? []}
@@ -172,13 +173,12 @@ export default function ItemPage() {
       {current.deleted_at ? (
         <p className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-border px-3 py-2 text-[13px]">
           {t("editor.inTrash")}
-          <button
-            type="button"
-            className="min-h-11 rounded-[8px] border border-border px-3"
+          <Button
+            variant="add"
             onClick={() => void restoreItem(current.id).then((saved) => queryClient.setQueryData(queryKeys.item(current.id), saved))}
           >
             {t("trash.restore")}
-          </button>
+          </Button>
         </p>
       ) : null}
       {current.source_item_id ? (

@@ -159,7 +159,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
             </select>
           </div>
         </div>
-        <Button type="submit" disabled={pending || loadingExisting}>
+        <Button type="submit" variant="go" disabled={pending || loadingExisting}>
           {existingId ? t("meeting.save") : t("common.create")}
         </Button>
       </form>

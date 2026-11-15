@@ -1,6 +1,7 @@
 import { NavLink } from "react-router";
 import { CalendarDays, FileText, Folder, Home, ListTodo, PanelLeftClose, PanelLeftOpen, StickyNote } from "lucide-react";
 
+import { Button } from "../ui/Button";
 import { cn } from "../../lib/cn";
 import { useI18n } from "../../lib/i18n";
 import { useProjectList } from "../../lib/queries";
@@ -78,14 +79,10 @@ export function Sidebar() {
           </div>
         ) : null}
       </nav>
-      <button
-        type="button"
-        className="m-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-[8px] px-2 text-[13px] text-fg-secondary hover:bg-interactive hover:text-fg"
-        onClick={() => setCollapsed(!collapsed)}
-      >
+      <Button variant="consult" className="m-2" onClick={() => setCollapsed(!collapsed)}>
         {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         {collapsed ? null : <span>{t("nav.collapse")}</span>}
-      </button>
+      </Button>
     </aside>
   );
 }

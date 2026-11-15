@@ -5,7 +5,10 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
 import { Button } from "../components/ui/Button";
+import { IconButton } from "../components/ui/IconButton";
 import { Modal } from "../components/ui/Modal";
+import { PageHeader } from "../components/ui/PageHeader";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { TextField } from "../components/ui/TextField";
 import {
   changePassword,
@@ -171,10 +174,9 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <header className="mb-6">
-        <h1 className="text-[20px]">{t("settings.title")}</h1>
-        <p className="mt-1 max-w-xl text-[13px] text-fg-muted">{t("settings.lead")}</p>
-      </header>
+      <PageHeader title={t("settings.title")} className="mb-6">
+        <p className="max-w-xl text-[13px] text-fg-muted">{t("settings.lead")}</p>
+      </PageHeader>
       <div className="md:grid md:grid-cols-[11rem_minmax(0,1fr)] md:items-start md:gap-8">
         <nav className="mb-6 flex gap-1 overflow-x-auto md:sticky md:top-0 md:mb-0 md:flex-col" aria-label="Settings sections">
           {SECTIONS.map((section) => (
@@ -196,7 +198,7 @@ export function SettingsPage() {
                 <p className="text-[13px] text-fg-secondary">{t("settings.signedIn")}</p>
                 <p className="mt-0.5 font-medium">{me.data?.username ?? "…"}</p>
               </div>
-              <Button variant="secondary" onClick={() => setPasswordOpen(true)}>
+              <Button variant="consult" onClick={() => setPasswordOpen(true)}>
                 {t("settings.changePassword")}
               </Button>
             </div>
@@ -235,11 +237,12 @@ export function SettingsPage() {
                     {passwordError || t("settings.passwordHint")}
                   </p>
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setPasswordOpen(false)}>
+                    <Button type="button" variant="consult" onClick={() => setPasswordOpen(false)}>
                       {t("common.cancel")}
                     </Button>
                     <Button
                       type="submit"
+                      variant="go"
                       disabled={passwordPending || !currentPassword || !newPassword || !confirmPassword}
                       aria-busy={passwordPending}
                     >
@@ -254,66 +257,46 @@ export function SettingsPage() {
           <Panel id="preferences" title={t("settings.preferences")} description={t("settings.preferencesDetail")}>
             <div className="flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[13px] text-fg-secondary">{t("settings.appearance")}</p>
-              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.appearance")}>
-                {(["dark", "light"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    role="radio"
-                    aria-checked={theme === option}
-                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${theme === option ? "bg-interactive text-fg" : "text-fg-secondary"}`}
-                    onClick={() => setTheme(option)}
-                  >
-                    {t(option === "dark" ? "settings.dark" : "settings.light")}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                label={t("settings.appearance")}
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: "dark", label: t("settings.dark") },
+                  { value: "light", label: t("settings.light") },
+                ]}
+              />
             </div>
             <div className="mt-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[13px] text-fg-secondary">{t("settings.language")}</p>
                 <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.languageDetail")}</p>
               </div>
-              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.language")}>
-                {(
-                  [
-                    ["en", "English"],
-                    ["ca", "Català"],
-                    ["es", "Español"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={locale === value}
-                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${locale === value ? "bg-interactive text-fg" : "text-fg-secondary"}`}
-                    onClick={() => setLocale(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                label={t("settings.language")}
+                value={locale}
+                onChange={setLocale}
+                options={[
+                  { value: "en", label: "English" },
+                  { value: "ca", label: "Català" },
+                  { value: "es", label: "Español" },
+                ]}
+              />
             </div>
             <div className="mt-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[13px] text-fg-secondary">{t("settings.tasksView")}</p>
                 <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.tasksViewDetail")}</p>
               </div>
-              <div className="inline-flex rounded-[8px] border border-border bg-canvas p-1" role="radiogroup" aria-label={t("settings.tasksView")}>
-                {(["list", "board"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    role="radio"
-                    aria-checked={tasksView === option}
-                    className={`min-h-8 rounded-[6px] px-3 text-[13px] ${tasksView === option ? "bg-interactive text-fg" : "text-fg-secondary"}`}
-                    onClick={() => setTasksView(option)}
-                  >
-                    {t(option === "list" ? "tasks.list" : "tasks.board")}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                label={t("settings.tasksView")}
+                value={tasksView}
+                onChange={setTasksView}
+                options={[
+                  { value: "list", label: t("tasks.list") },
+                  { value: "board", label: t("tasks.board") },
+                ]}
+              />
             </div>
             <div className="mt-4 border-b border-border-subtle pb-4">
               <p className="text-[13px] text-fg-secondary">{t("settings.board")}</p>
@@ -322,12 +305,12 @@ export function SettingsPage() {
                 {boardOrder.map((status, index) => (
                   <li key={status} className="flex items-center gap-2 border-t border-border-subtle py-2 first:border-t-0">
                     <span className="flex-1 text-[13px]">{t(`board.${status}` as MessageKey)}</span>
-                    <button type="button" aria-label={`${status} up`} disabled={index === 0} className="text-fg-muted disabled:opacity-30" onClick={() => moveBoardColumn(status, -1)}>
+                    <IconButton label={`${status} up`} disabled={index === 0} onClick={() => moveBoardColumn(status, -1)}>
                       <ChevronUp size={16} />
-                    </button>
-                    <button type="button" aria-label={`${status} down`} disabled={index === boardOrder.length - 1} className="text-fg-muted disabled:opacity-30" onClick={() => moveBoardColumn(status, 1)}>
+                    </IconButton>
+                    <IconButton label={`${status} down`} disabled={index === boardOrder.length - 1} onClick={() => moveBoardColumn(status, 1)}>
                       <ChevronDown size={16} />
-                    </button>
+                    </IconButton>
                   </li>
                 ))}
               </ul>
@@ -383,7 +366,7 @@ export function SettingsPage() {
                 className={`${fieldClass} min-w-0 flex-1`}
                 onChange={(event) => setNewContext(event.target.value)}
               />
-              <Button type="submit" className="shrink-0">
+              <Button type="submit" variant="add" className="shrink-0">
                 <Plus size={14} />
                 Add
               </Button>
@@ -452,7 +435,7 @@ function ExportRow({ title, detail, action, onClick }: { title: string; detail: 
         <p className="font-medium">{title}</p>
         <p className="mt-0.5 text-[13px] text-fg-muted">{detail}</p>
       </div>
-      <Button variant="secondary" className="shrink-0" onClick={onClick}>
+      <Button variant="consult" className="shrink-0" onClick={onClick}>
         {action}
       </Button>
     </div>
@@ -529,15 +512,15 @@ function ContextRow({
         onChange={(event) => setNextName(event.target.value)}
         onBlur={(event) => void onSave(id, event.target.value, nextColor, name, color)}
       />
-      <button type="button" aria-label={`Move ${name} up`} disabled={first} className="text-fg-muted disabled:opacity-30" onClick={() => onMove("up")}>
+      <IconButton label={`Move ${name} up`} disabled={first} onClick={() => onMove("up")}>
         <ChevronUp size={16} />
-      </button>
-      <button type="button" aria-label={`Move ${name} down`} disabled={last} className="text-fg-muted disabled:opacity-30" onClick={() => onMove("down")}>
+      </IconButton>
+      <IconButton label={`Move ${name} down`} disabled={last} onClick={() => onMove("down")}>
         <ChevronDown size={16} />
-      </button>
-      <button type="button" aria-label={`Delete ${name}`} className="text-fg-muted hover:text-fg" onClick={onDelete}>
+      </IconButton>
+      <IconButton label={`Delete ${name}`} onClick={onDelete}>
         <Trash2 size={15} />
-      </button>
+      </IconButton>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Button } from "../ui/Button";
 import { useI18n } from "../../lib/i18n";
 
 function highlight(line: string, query: string) {
@@ -50,15 +51,15 @@ export function TranscriptDrawer({
 
   return (
     <div ref={root} className="border-t border-border-subtle">
-      <button
-        type="button"
-        className="flex min-h-11 w-full items-center justify-between px-4 text-left"
+      <Button
+        variant="consult"
+        className="h-auto min-h-11 w-full justify-between rounded-none px-4"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
         <span>{t("editor.raw")}</span>
         <span className="font-mono text-[13px] text-fg-muted">{value.length}</span>
-      </button>
+      </Button>
       {open ? (
         <div className="px-4 pb-4">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -67,16 +68,12 @@ export function TranscriptDrawer({
               value={query}
               aria-label={t("editor.find")}
               placeholder={t("editor.find")}
-              className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+              className="min-h-9 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
               onChange={(event) => setQuery(event.target.value)}
             />
-            <button
-              type="button"
-              className="min-h-11 rounded-[8px] border border-border px-3"
-              onClick={() => setEditing((current) => !current)}
-            >
+            <Button variant="add" onClick={() => setEditing((current) => !current)}>
               {editing ? t("editor.done") : t("editor.editRaw")}
-            </button>
+            </Button>
           </div>
           {editing ? (
             <textarea

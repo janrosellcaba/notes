@@ -6,7 +6,9 @@ import { Board } from "../components/kanban/Board";
 import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
 import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PriorityMark } from "../components/ui/PriorityMark";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { StatusSelect } from "../components/ui/StatusSelect";
 import { groupTasks, todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
@@ -75,26 +77,25 @@ export function TasksPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-[20px]">{t("tasks.title")}</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => setCreating(true)}>
-            {t("tasks.new")}
-          </Button>
-        <div className="flex rounded-[8px] border border-border p-1">
-          {(["list", "board"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`min-h-8 rounded-[8px] px-3 text-[13px] ${view === option ? "bg-interactive" : "text-fg-muted"}`}
-              onClick={() => setView(option)}
-            >
-              {t(option === "list" ? "tasks.list" : "tasks.board")}
-            </button>
-          ))}
-        </div>
-        </div>
-      </div>
+      <PageHeader
+        title={t("tasks.title")}
+        actions={
+          <>
+            <Button variant="add" onClick={() => setCreating(true)}>
+              {t("tasks.new")}
+            </Button>
+            <SegmentedControl
+              label={t("settings.tasksView")}
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "list", label: t("tasks.list") },
+                { value: "board", label: t("tasks.board") },
+              ]}
+            />
+          </>
+        }
+      />
       {view === "board" ? (
         <Board items={nested.roots} projectId={null} showProject />
       ) : (

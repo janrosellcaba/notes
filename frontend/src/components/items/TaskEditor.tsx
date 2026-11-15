@@ -89,7 +89,7 @@ export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { pro
           onProject={setProjectId}
           onContext={setContextId}
         />
-        <Button type="submit" disabled={pending || title.trim().length === 0}>
+        <Button type="submit" variant="go" disabled={pending || title.trim().length === 0}>
           {t("tasks.create")}
         </Button>
       </form>
@@ -252,7 +252,7 @@ export function TaskEditor({
                   }
                 }}
               />
-              <Button type="button" variant="secondary" onClick={() => void addSubtask()}>
+              <Button type="button" variant="add" onClick={() => void addSubtask()}>
                 {t("common.create")}
               </Button>
             </div>

@@ -1,19 +1,21 @@
 import { useEffect } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { FileText, ListTodo, PenLine } from "lucide-react";
 
+import { MonthCalendar } from "../components/home/MonthCalendar";
+import { TaskRow } from "../components/items/TaskRow";
+import { Button } from "../components/ui/Button";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PageHeader } from "../components/ui/PageHeader";
+import { RowLink } from "../components/ui/RowLink";
 import { listItems } from "../lib/api";
 import { openDaily } from "../lib/daily";
 import { relativeTime, todayLabel } from "../lib/dates";
-import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
-import { useUi } from "../stores/ui";
+import { queryKeys } from "../lib/queryKeys";
 import { useHomeFeed } from "../lib/queries";
-import { MonthCalendar } from "../components/home/MonthCalendar";
-import { Button } from "../components/ui/Button";
-import { EmptyState } from "../components/ui/EmptyState";
-import { TaskRow } from "../components/items/TaskRow";
-import { FileText, ListTodo, PenLine } from "lucide-react";
+import { useUi } from "../stores/ui";
 
 export function HomePage() {
   const openCapture = useUi((state) => state.openCapture);
@@ -51,48 +53,31 @@ export function HomePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
-      <header>
-        <h1 className="text-[20px]">{t("nav.home")}</h1>
-        <button
-          type="button"
-          className="mt-1 text-[13px] text-fg-muted hover:text-fg"
-          onClick={() => void openToday()}
-        >
+      <PageHeader title={t("nav.home")}>
+        <Button variant="consult" className="mt-1 self-start px-0 hover:bg-transparent" onClick={() => void openToday()}>
           {todayLabel()}
-        </button>
-      </header>
+        </Button>
+      </PageHeader>
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] text-fg-muted">{t("home.capture")}</h2>
-          <Button variant="ghost" className="px-2" onClick={() => openCapture({ type: "project", contextId: null })}>
+          <Button variant="add" onClick={() => openCapture({ type: "project", contextId: null })}>
             {t("home.newProject")}
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <button
-            type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => openCapture({ type: "note", projectId: null })}
-          >
+          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "note", projectId: null })}>
             <PenLine size={16} />
             {t("home.note")}
-          </button>
-          <button
-            type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => openCapture({ type: "task" })}
-          >
+          </Button>
+          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "task" })}>
             <ListTodo size={16} />
             {t("home.task")}
-          </button>
-          <button
-            type="button"
-            className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border bg-elevated px-3 text-left text-[13px] hover:bg-interactive"
-            onClick={() => openCapture({ type: "meeting", projectId: null })}
-          >
+          </Button>
+          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "meeting", projectId: null })}>
             <FileText size={16} />
             {t("home.meeting")}
-          </button>
+          </Button>
         </div>
       </section>
       {recentNotes.length > 0 ? (
@@ -100,13 +85,8 @@ export function HomePage() {
           <h2 className="mb-2 text-[13px] text-fg-muted">{t("home.recent")}</h2>
           <ul>
             {recentNotes.map((item) => (
-              <li key={item.id} className="border-b border-border-subtle">
-                <Link to={`/item/${item.id}`} className="flex min-h-9 items-center gap-3 text-[14px]">
-                  <span className="min-w-0 flex-1 truncate">{item.title || t("common.untitled")}</span>
-                  <time className="shrink-0 font-mono text-[12px] text-fg-muted" dateTime={item.updated_at}>
-                    {relativeTime(item.updated_at)}
-                  </time>
-                </Link>
+              <li key={item.id}>
+                <RowLink to={`/item/${item.id}`} title={item.title || t("common.untitled")} meta={relativeTime(item.updated_at)} />
               </li>
             ))}
           </ul>

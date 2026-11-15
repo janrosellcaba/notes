@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
+import { Button } from "../components/ui/Button";
 import { ApiError, createItem, errorMessage, getMe, newIdempotencyKey } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import type { ItemCreate } from "../types/api";
@@ -125,9 +126,9 @@ export function CapturePage() {
         {error ? (
           <div className="mt-4 flex flex-col items-start gap-3">
             <p>{error}</p>
-            <button type="button" className="min-h-11 rounded-[8px] bg-fg px-3 text-canvas" onClick={() => setAttempt((current) => current + 1)}>
+            <Button variant="go" onClick={() => setAttempt((current) => current + 1)}>
               Retry
-            </button>
+            </Button>
           </div>
         ) : null}
         {body ? <pre className="mt-6 whitespace-pre-wrap text-fg-secondary">{body}</pre> : null}
