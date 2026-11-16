@@ -246,27 +246,6 @@ async def seed_workspace(db: Database, user_id: str, *, force: bool = False) -> 
                 ),
             )
 
-        for offset in range(40):
-            day = today - timedelta(days=offset)
-            daily = _iso(day)
-            created = _stamp(day, hour=7)
-            await tx.execute(
-                """
-                INSERT INTO items (
-                  id, user_id, type, title, body_md, daily_on, pinned, created_at, updated_at
-                ) VALUES (?, ?, 'note', ?, ?, ?, 0, ?, ?)
-                """,
-                (
-                    str(uuid4()),
-                    user_id,
-                    daily,
-                    f"# {daily}\n\n- Morning focus\n- One thing that moved\n- One thing to leave\n",
-                    daily,
-                    created,
-                    created,
-                ),
-            )
-
         inbox_notes = [
             "Shared from WhatsApp",
             "Parking lot ideas",

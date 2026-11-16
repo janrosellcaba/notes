@@ -1,21 +1,23 @@
+import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createItem, listItems, patchItem } from "../../lib/api";
+import { createItem, deleteItem, listItems, patchItem } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts, useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
 import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
 import { StatusSelect } from "../ui/StatusSelect";
+import { Attachments } from "./Attachments";
 
 const PRIORITIES: ItemPriority[] = ["none", "low", "medium", "high", "urgent"];
 
 const fieldClass =
-  "mt-1.5 min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg";
+  "mt-1.5 min-h-9 w-full rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg";
 
 export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { projectId?: string; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -70,7 +72,7 @@ export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { pro
           value={title}
           aria-label={t("editor.title")}
           placeholder={t("editor.title")}
-          className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+          className="min-h-10 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
           onChange={(event) => setTitle(event.target.value)}
         />
         <TaskDetails
@@ -89,9 +91,14 @@ export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { pro
           onProject={setProjectId}
           onContext={setContextId}
         />
-        <Button type="submit" variant="go" disabled={pending || title.trim().length === 0}>
-          {t("tasks.create")}
-        </Button>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="consult" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" variant="go" disabled={pending || title.trim().length === 0}>
+            {t("tasks.create")}
+          </Button>
+        </div>
       </form>
     </Modal>
   );
@@ -121,15 +128,36 @@ export function TaskEditor({
   const [projectId, setProjectId] = useState(item.project?.id ?? "");
   const [contextId, setContextId] = useState(item.project ? "" : (item.context?.id ?? ""));
   const [subtask, setSubtask] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const children = useQuery({
     queryKey: queryKeys.items({ parent_id: item.id, type: "task", include_done: true, limit: 100 }),
     queryFn: () => listItems({ parent_id: item.id, type: "task", include_done: true, limit: 100 }),
   });
 
   useEffect(() => {
+    setTitle(item.title);
+    setBody(item.body_md);
+    setDue(item.due_on ?? "");
+    setStarts(item.starts_on ?? "");
+    setAssignee(item.assignee ?? "");
+    setPriority(item.priority ?? "none");
+    setStatus(item.status ?? "todo");
+    setProjectId(item.project?.id ?? "");
+    setContextId(item.project ? "" : (item.context?.id ?? ""));
+    setConfirmDelete(false);
+  }, [item]);
+
+  useEffect(() => {
     if (title === item.title && body === item.body_md) return;
     const timer = window.setTimeout(() => {
-      void save({ title, body_md: body });
+      const nextTitle = title.trim();
+      // Never persist a blank title; still allow body-only updates.
+      if (!nextTitle) {
+        if (body !== item.body_md) void save({ body_md: body });
+        return;
+      }
+      void save({ title: nextTitle, body_md: body });
     }, 400);
     return () => window.clearTimeout(timer);
     // Title and body debounce. Selects save immediately.
@@ -156,7 +184,7 @@ export function TaskEditor({
         title: next,
         parent_id: item.id,
         project_id: item.project?.id ?? null,
-        context_id: item.project ? null : item.context?.id ?? null,
+        context_id: item.project ? null : (item.context?.id ?? null),
       });
       setSubtask("");
       await queryClient.invalidateQueries({ queryKey: ["items"] });
@@ -165,10 +193,25 @@ export function TaskEditor({
     }
   }
 
+  async function remove() {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await deleteItem(item.id);
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+      await queryClient.invalidateQueries({ queryKey: ["home"] });
+      onClose();
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <Modal title={t("editor.task")} onClose={onClose}>
-      <form className="flex flex-col gap-3 p-4" onSubmit={(event) => event.preventDefault()}>
-        <div className="flex items-center gap-2">
+      <form className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto p-4" onSubmit={(event) => event.preventDefault()}>
+        <div className="flex items-start gap-2">
           <StatusSelect
             status={status}
             onChange={(next) => {
@@ -179,9 +222,19 @@ export function TaskEditor({
           <input
             value={title}
             aria-label={t("editor.title")}
-            className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+            placeholder={t("editor.title")}
+            className="min-h-10 min-w-0 flex-1 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
             onChange={(event) => setTitle(event.target.value)}
           />
+          {confirmDelete ? (
+            <Button type="button" variant="consult" tone="danger" disabled={deleting} onClick={() => void remove()}>
+              {t("inbox.deleteConfirm")}
+            </Button>
+          ) : (
+            <IconButton label={t("inbox.delete")} onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={14} />
+            </IconButton>
+          )}
         </div>
         <TaskDetails
           due={due}
@@ -243,7 +296,7 @@ export function TaskEditor({
                 value={subtask}
                 aria-label={t("task.addSubtask")}
                 placeholder={t("task.addSubtask")}
-                className="min-h-8 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[13px] outline-none focus:border-fg"
+                className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
                 onChange={(event) => setSubtask(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -252,7 +305,7 @@ export function TaskEditor({
                   }
                 }}
               />
-              <Button type="button" variant="add" onClick={() => void addSubtask()}>
+              <Button type="button" variant="consult" disabled={subtask.trim().length === 0} onClick={() => void addSubtask()}>
                 {t("common.create")}
               </Button>
             </div>
@@ -261,12 +314,11 @@ export function TaskEditor({
         <textarea
           value={body}
           aria-label={t("task.notes")}
-          className="min-h-32 rounded-[8px] border border-border bg-canvas px-3 py-2 text-[16px] leading-[1.6] outline-none focus:border-fg"
+          placeholder={t("task.notes")}
+          className="min-h-28 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
           onChange={(event) => setBody(event.target.value)}
         />
-        <Link to={`/item/${item.id}`} className="min-h-8 self-start text-[13px] leading-8 underline">
-          {t("editor.open")}
-        </Link>
+        <Attachments itemId={item.id} />
       </form>
     </Modal>
   );
@@ -307,18 +359,16 @@ function TaskDetails({
 }) {
   const { t } = useI18n();
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-[13px] text-fg-secondary">
-          {t("task.starts")}
-          <input type="date" value={starts} className={fieldClass} onChange={(event) => onStarts(event.target.value)} />
-        </label>
-        <label className="block text-[13px] text-fg-secondary">
-          {t("task.due")}
-          <input type="date" value={due} className={fieldClass} onChange={(event) => onDue(event.target.value)} />
-        </label>
-      </div>
-      <label className="block text-[13px] text-fg-secondary">
+    <div className="grid gap-2 sm:grid-cols-2">
+      <label className="block text-[12px] text-fg-muted">
+        {t("task.starts")}
+        <input type="date" value={starts} className={fieldClass} onChange={(event) => onStarts(event.target.value)} />
+      </label>
+      <label className="block text-[12px] text-fg-muted">
+        {t("task.due")}
+        <input type="date" value={due} className={fieldClass} onChange={(event) => onDue(event.target.value)} />
+      </label>
+      <label className="block text-[12px] text-fg-muted">
         {t("task.priority")}
         <select
           value={priority}
@@ -332,7 +382,7 @@ function TaskDetails({
           ))}
         </select>
       </label>
-      <label className="block text-[13px] text-fg-secondary">
+      <label className="block text-[12px] text-fg-muted">
         {t("task.assignee")}
         <input
           value={assignee}
@@ -342,7 +392,7 @@ function TaskDetails({
           onBlur={(event) => onAssigneeCommit?.(event.target.value)}
         />
       </label>
-      <label className="block text-[13px] text-fg-secondary">
+      <label className="block text-[12px] text-fg-muted sm:col-span-2">
         {t("task.project")}
         <select value={projectId} className={fieldClass} onChange={(event) => onProject(event.target.value)}>
           <option value="">{t("tasks.noProject")}</option>
@@ -354,7 +404,7 @@ function TaskDetails({
         </select>
       </label>
       {projectId ? null : (
-        <label className="block text-[13px] text-fg-secondary">
+        <label className="block text-[12px] text-fg-muted sm:col-span-2">
           {t("tasks.context")}
           <select value={contextId} className={fieldClass} onChange={(event) => onContext(event.target.value)}>
             <option value="">{t("tasks.noContext")}</option>
@@ -366,6 +416,6 @@ function TaskDetails({
           </select>
         </label>
       )}
-    </>
+    </div>
   );
 }

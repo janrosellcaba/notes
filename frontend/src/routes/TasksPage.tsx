@@ -4,13 +4,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Board } from "../components/kanban/Board";
 import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
-import { Button } from "../components/ui/Button";
-import { ContextBadge } from "../components/ui/ContextBadge";
+import { nestTasks, TaskList } from "../components/items/TaskList";
+import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
-import { PriorityMark } from "../components/ui/PriorityMark";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
-import { StatusSelect } from "../components/ui/StatusSelect";
-import { groupTasks, todayISO } from "../lib/dates";
+import { todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { queryKeys } from "../lib/queryKeys";
@@ -33,22 +31,15 @@ export function TasksPage() {
   const filters = useMemo<ItemFilters>(() => {
     const next: ItemFilters = {
       type: "task",
-      include_done: view === "board",
+      include_done: true,
       limit: 200,
       today,
     };
     if (contextId !== "all") next.context_id = contextId;
     return next;
-  }, [view, today, contextId]);
+  }, [today, contextId]);
   const tasks = useQuery({ queryKey: queryKeys.items(filters), queryFn: () => listItems(filters) });
   const nested = nestTasks(tasks.data?.items ?? []);
-  const groups = groupTasks(nested.roots, today);
-  const sections = [
-    [t("tasks.overdue"), groups.overdue],
-    [t("tasks.today"), groups.today],
-    [t("tasks.upcoming"), groups.upcoming],
-    [t("tasks.none"), groups.none],
-  ] as const;
 
   function setView(next: "list" | "board") {
     const copy = new URLSearchParams(params);
@@ -81,9 +72,7 @@ export function TasksPage() {
         title={t("tasks.title")}
         actions={
           <>
-            <Button variant="add" onClick={() => setCreating(true)}>
-              {t("tasks.new")}
-            </Button>
+            <NewButton onClick={() => setCreating(true)}>{t("tasks.new")}</NewButton>
             <SegmentedControl
               label={t("settings.tasksView")}
               value={view}
@@ -97,93 +86,16 @@ export function TasksPage() {
         }
       />
       {view === "board" ? (
-        <Board items={nested.roots} projectId={null} showProject />
+        <Board items={nested.roots} projectId={null} showProject onOpen={setEditing} />
       ) : (
-        <div className="flex flex-col gap-6">
-          {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">{t("tasks.empty")}</p> : null}
-          {sections.map(([label, rows]) =>
-            rows.length === 0 ? null : (
-              <section key={label}>
-                <h2 className="mb-2 text-[13px] text-fg-muted">{label}</h2>
-                <ul>
-                  {rows.map((item) => (
-                    <li key={item.id}>
-                      <TaskRow
-                        item={item}
-                        onOpen={setEditing}
-                        onStatus={(row, status) => void setStatus(row, status)}
-                      />
-                      {(nested.children.get(item.id) ?? []).map((child) => (
-                        <div key={child.id} className="pl-7">
-                          <TaskRow
-                            item={child}
-                            onOpen={setEditing}
-                            onStatus={(row, status) => void setStatus(row, status)}
-                          />
-                        </div>
-                      ))}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ),
-          )}
-        </div>
+        <TaskList
+          items={tasks.data?.items ?? []}
+          onOpen={setEditing}
+          onStatus={(row, status) => void setStatus(row, status)}
+        />
       )}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}
       {creating ? <TaskCreateDialog onClose={() => setCreating(false)} /> : null}
-    </div>
-  );
-}
-
-function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]> } {
-  const ids = new Set(items.map((item) => item.id));
-  const children = new Map<string, Item[]>();
-  const roots: Item[] = [];
-  for (const item of items) {
-    if (item.parent_id && ids.has(item.parent_id)) {
-      const list = children.get(item.parent_id) ?? [];
-      list.push(item);
-      children.set(item.parent_id, list);
-    } else {
-      roots.push(item);
-    }
-  }
-  return { roots, children };
-}
-
-function TaskRow({
-  item,
-  onOpen,
-  onStatus,
-}: {
-  item: Item;
-  onOpen: (item: Item) => void;
-  onStatus: (item: Item, status: ItemStatus) => void;
-}) {
-  const { t } = useI18n();
-  const badge = item.project
-    ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
-    : item.context
-      ? { color: item.context.color, icon: item.context.icon, name: item.context.name }
-      : null;
-  const done = item.status === "done";
-  return (
-    <div className="flex min-h-11 items-center gap-2 rounded-[8px] px-1 hover:bg-interactive">
-      <StatusSelect status={item.status ?? "todo"} onChange={(status) => onStatus(item, status)} />
-      <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpen(item)}>
-        <span className={`min-w-0 flex-1 truncate ${done ? "text-fg-muted line-through" : ""}`}>
-          {item.title || t("common.untitled")}
-        </span>
-        {item.subtask_total > 0 ? (
-          <span className="font-mono text-[12px] text-fg-muted">
-            {item.subtask_done}/{item.subtask_total}
-          </span>
-        ) : null}
-        {item.due_on ? <span className="font-mono text-[13px] text-fg-muted">{item.due_on}</span> : null}
-        <PriorityMark priority={item.priority} />
-        {badge ? <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} /> : null}
-      </button>
     </div>
   );
 }

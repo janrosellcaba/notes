@@ -22,7 +22,15 @@ function chipClass(active: boolean): string {
   );
 }
 
-export function QuickTaskBar({ onClose }: { onClose: () => void }) {
+export function QuickTaskBar({
+  dueOn = null,
+  projectId: initialProjectId = null,
+  onClose,
+}: {
+  dueOn?: string | null;
+  projectId?: string | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const contextId = useUi((state) => state.contextId);
@@ -30,8 +38,8 @@ export function QuickTaskBar({ onClose }: { onClose: () => void }) {
   const projects = useProjectList("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
-  const [due, setDue] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [due, setDue] = useState<string | null>(dueOn);
+  const [projectId, setProjectId] = useState<string | null>(initialProjectId);
   const [priority, setPriority] = useState<ItemPriority>("none");
   const [projectOpen, setProjectOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);

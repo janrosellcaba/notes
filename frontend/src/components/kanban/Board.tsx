@@ -41,10 +41,12 @@ export function Board({
   items,
   projectId,
   showProject,
+  onOpen,
 }: {
   items: Item[];
   projectId: string | null;
   showProject: boolean;
+  onOpen: (item: Item) => void;
 }) {
   const desktop = useDesktop();
   const queryClient = useQueryClient();
@@ -144,6 +146,7 @@ export function Board({
               showProject={showProject}
               minimized={minimized(status, rows.length)}
               onToggle={() => toggle(status, rows.length)}
+              onOpen={onOpen}
               onAdd={(title) => void addCard(status, title)}
               onMove={(item, next) => void move(item, next, null, null)}
             />
@@ -157,6 +160,7 @@ export function Board({
     <DesktopBoard
       items={items}
       showProject={showProject}
+      onOpen={onOpen}
       onAdd={addCard}
       onMove={move}
       onDragEnd={onDragEnd}
@@ -169,6 +173,7 @@ export function Board({
 function DesktopBoard({
   items,
   showProject,
+  onOpen,
   onAdd,
   onMove,
   onDragEnd,
@@ -177,6 +182,7 @@ function DesktopBoard({
 }: {
   items: Item[];
   showProject: boolean;
+  onOpen: (item: Item) => void;
   onAdd: (status: ColumnStatus, title: string) => Promise<void>;
   onMove: (item: Item, status: ColumnStatus, beforeId: string | null, afterId: string | null) => Promise<void>;
   onDragEnd: (event: DragEndEvent) => void;
@@ -203,6 +209,7 @@ function DesktopBoard({
               showProject={showProject}
               minimized={minimized(status, rows.length)}
               onToggle={() => onToggle(status, rows.length)}
+              onOpen={onOpen}
               onAdd={(title) => void onAdd(status, title)}
               onMove={(item, next) => void onMove(item, next, null, null)}
             />

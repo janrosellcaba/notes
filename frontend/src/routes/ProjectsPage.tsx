@@ -1,5 +1,5 @@
-import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/ui/PageHeader";
+import { NewButton } from "../components/ui/NewButton";
 import { RowLink } from "../components/ui/RowLink";
 import { ContextMark } from "../components/shell/ContextMark";
 import { useI18n } from "../lib/i18n";
@@ -21,9 +21,9 @@ export function ProjectsPage() {
       <PageHeader
         title={t("projects.title")}
         actions={
-          <Button variant="add" onClick={() => openCapture({ type: "project", contextId: null })}>
+          <NewButton onClick={() => openCapture({ type: "project", contextId: null })}>
             {t("projects.new")}
-          </Button>
+          </NewButton>
         }
       />
       {groups.map((context) => {
@@ -42,13 +42,12 @@ export function ProjectsPage() {
               ))}
               {rows.length === 0 ? (
                 <li>
-                  <Button
-                    variant="consult"
-                    className="w-full justify-start px-2 text-fg-muted"
+                  <NewButton
+                    className="w-full justify-start text-fg-muted"
                     onClick={() => openCapture({ type: "project", contextId: context.id })}
                   >
                     {t("projects.empty")}
-                  </Button>
+                  </NewButton>
                 </li>
               ) : null}
             </ul>

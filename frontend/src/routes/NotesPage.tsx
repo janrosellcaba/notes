@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
+import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RowLink } from "../components/ui/RowLink";
 import { listItems } from "../lib/api";
@@ -30,9 +30,9 @@ export function NotesPage() {
       <PageHeader
         title={t("notes.title")}
         actions={
-          <Button variant="add" onClick={() => openCapture({ type: "note", projectId: null })}>
+          <NewButton onClick={() => openCapture({ type: "note", projectId: null })}>
             {t("home.note")}
-          </Button>
+          </NewButton>
         }
       />
       {notes.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}

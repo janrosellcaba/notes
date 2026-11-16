@@ -1,17 +1,17 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, ListTodo, PenLine } from "lucide-react";
 
+import { DayPanel } from "../components/home/DayPanel";
 import { MonthCalendar } from "../components/home/MonthCalendar";
 import { TaskRow } from "../components/items/TaskRow";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
+import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RowLink } from "../components/ui/RowLink";
 import { listItems } from "../lib/api";
-import { openDaily } from "../lib/daily";
-import { relativeTime, todayLabel } from "../lib/dates";
+import { relativeTime, todayISO, todayLabel } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useHomeFeed } from "../lib/queries";
@@ -20,8 +20,8 @@ import { useUi } from "../stores/ui";
 export function HomePage() {
   const openCapture = useUi((state) => state.openCapture);
   const contextId = useUi((state) => state.contextId);
-  const navigate = useNavigate();
   const { t } = useI18n();
+  const [todayPanel, setTodayPanel] = useState(false);
   const recent = useQuery({
     queryKey: queryKeys.items({ limit: 12, context_id: contextId === "all" ? undefined : contextId }),
     queryFn: () => listItems({ limit: 12, context_id: contextId === "all" ? undefined : contextId }),
@@ -46,38 +46,49 @@ export function HomePage() {
   }, []);
   const tasks = home.data?.today_tasks ?? [];
 
-  async function openToday() {
-    const id = await openDaily();
-    if (id) void navigate(`/item/${id}`);
-  }
-
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
       <PageHeader title={t("nav.home")}>
-        <Button variant="consult" className="mt-1 self-start px-0 hover:bg-transparent" onClick={() => void openToday()}>
+        <Button
+          variant="consult"
+          className="mt-1 self-start px-0 hover:bg-transparent"
+          onClick={() => setTodayPanel(true)}
+        >
           {todayLabel()}
         </Button>
       </PageHeader>
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] text-fg-muted">{t("home.capture")}</h2>
-          <Button variant="add" onClick={() => openCapture({ type: "project", contextId: null })}>
+          <NewButton onClick={() => openCapture({ type: "project", contextId: null })}>
             {t("home.newProject")}
-          </Button>
+          </NewButton>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "note", projectId: null })}>
-            <PenLine size={16} />
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+          <button
+            type="button"
+            className="flex min-h-10 items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-fg-secondary hover:bg-interactive hover:text-fg"
+            onClick={() => openCapture({ type: "note", projectId: null })}
+          >
+            <PenLine size={15} className="opacity-70" />
             {t("home.note")}
-          </Button>
-          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "task" })}>
-            <ListTodo size={16} />
+          </button>
+          <button
+            type="button"
+            className="flex min-h-10 items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-fg-secondary hover:bg-interactive hover:text-fg"
+            onClick={() => openCapture({ type: "task" })}
+          >
+            <ListTodo size={15} className="opacity-70" />
             {t("home.task")}
-          </Button>
-          <Button variant="add" className="justify-start" onClick={() => openCapture({ type: "meeting", projectId: null })}>
-            <FileText size={16} />
+          </button>
+          <button
+            type="button"
+            className="flex min-h-10 items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-fg-secondary hover:bg-interactive hover:text-fg"
+            onClick={() => openCapture({ type: "meeting", projectId: null })}
+          >
+            <FileText size={15} className="opacity-70" />
             {t("home.meeting")}
-          </Button>
+          </button>
         </div>
       </section>
       {recentNotes.length > 0 ? (
@@ -104,6 +115,7 @@ export function HomePage() {
         </ul>
       </section>
       <MonthCalendar />
+      {todayPanel ? <DayPanel day={todayISO()} onClose={() => setTodayPanel(false)} /> : null}
     </div>
   );
 }

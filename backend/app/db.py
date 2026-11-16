@@ -210,7 +210,7 @@ class Database:
         )
 
     async def _ensure_features(self) -> None:
-        """Columns and the attachment table for trash, daily notes, recurrence, and files."""
+        """Columns and the attachment table for trash, recurrence, and files."""
         conn = self._connection()
         cursor = await conn.execute("PRAGMA table_info(items)")
         rows = await cursor.fetchall()
@@ -261,6 +261,14 @@ class Database:
             WHERE parent_id IS NOT NULL AND deleted_at IS NULL
             """
         )
+        # Daily notes were removed — purge any leftover rows on startup.
+        await conn.execute(
+            "DELETE FROM attachments WHERE item_id IN (SELECT id FROM items WHERE daily_on IS NOT NULL)"
+        )
+        await conn.execute(
+            "DELETE FROM idempotency_keys WHERE item_id IN (SELECT id FROM items WHERE daily_on IS NOT NULL)"
+        )
+        await conn.execute("DELETE FROM items WHERE daily_on IS NOT NULL")
         cursor = await conn.execute("PRAGMA table_info(contexts)")
         context_rows = await cursor.fetchall()
         await cursor.close()

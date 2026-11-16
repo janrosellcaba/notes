@@ -5,19 +5,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Board } from "../components/kanban/Board";
 import { MonthCalendar } from "../components/home/MonthCalendar";
 import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
+import { nestTasks, TaskList } from "../components/items/TaskList";
 import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
+import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
-import { PriorityMark } from "../components/ui/PriorityMark";
 import { RowLink } from "../components/ui/RowLink";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
-import { StatusSelect } from "../components/ui/StatusSelect";
 import { Modal } from "../components/ui/Modal";
 import { Popover } from "../components/ui/Popover";
 import { TextField } from "../components/ui/TextField";
 import { archiveProject, deleteProject, getProject, listItems, patchItem, patchProject } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
-import { groupTasks, relativeTime, todayISO } from "../lib/dates";
+import { relativeTime, todayISO } from "../lib/dates";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useUi } from "../stores/ui";
@@ -68,11 +68,11 @@ export function ProjectDetailPage() {
     () => ({
       type: "task",
       project_id: projectId,
-      include_done: tasksView === "board",
+      include_done: true,
       limit: 200,
       today,
     }),
-    [projectId, tasksView, today],
+    [projectId, today],
   );
   const notes = useQuery({
     queryKey: queryKeys.items(noteFilters),
@@ -166,23 +166,24 @@ export function ProjectDetailPage() {
   const current = project.data;
   const meetingRows = [...(meetings.data?.items ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at));
   const nested = nestTasks(tasks.data?.items ?? []);
-  const groups = groupTasks(nested.roots, today);
-  const sections = [
-    [t("tasks.overdue"), groups.overdue],
-    [t("tasks.today"), groups.today],
-    [t("tasks.upcoming"), groups.upcoming],
-    [t("tasks.none"), groups.none],
-  ] as const;
   const tabs: Tab[] = ["notes", "tasks", "meetings", "calendar"];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <PageHeader
         title={
-          <span className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            className="flex min-w-0 items-center gap-3 rounded-md text-left hover:bg-interactive"
+            title={t("project.rename")}
+            onClick={() => {
+              setName(current.name);
+              setRenaming(true);
+            }}
+          >
             <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: current.color }} />
             <span className="truncate">{current.name}</span>
-          </span>
+          </button>
         }
         actions={
           <>
@@ -247,9 +248,9 @@ export function ProjectDetailPage() {
       </div>
       {tab === "notes" ? (
         <section className="flex flex-col gap-2">
-          <Button variant="add" className="self-start" onClick={() => openCapture({ type: "note", projectId: current.id })}>
+          <NewButton className="self-start" onClick={() => openCapture({ type: "note", projectId: current.id })}>
             {t("project.noteIn")}
-          </Button>
+          </NewButton>
           <ul>
             {(notes.data?.items ?? []).map((item) => (
               <li key={item.id}>
@@ -262,9 +263,7 @@ export function ProjectDetailPage() {
       {tab === "tasks" ? (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="add" onClick={() => setCreating(true)}>
-              {t("tasks.new")}
-            </Button>
+            <NewButton onClick={() => setCreating(true)}>{t("tasks.new")}</NewButton>
             <SegmentedControl
               label={t("settings.tasksView")}
               value={tasksView}
@@ -276,38 +275,22 @@ export function ProjectDetailPage() {
             />
           </div>
           {tasksView === "board" ? (
-            <Board items={nested.roots} projectId={current.id} showProject={false} />
+            <Board items={nested.roots} projectId={current.id} showProject={false} onOpen={setEditing} />
           ) : (
-            <div className="flex flex-col gap-6">
-              {sections.every(([, rows]) => rows.length === 0) ? <p className="text-fg-muted">{t("tasks.empty")}</p> : null}
-              {sections.map(([label, rows]) =>
-                rows.length === 0 ? null : (
-                  <div key={label}>
-                    <h2 className="mb-2 text-[13px] text-fg-muted">{label}</h2>
-                    <ul>
-                      {rows.map((item) => (
-                        <li key={item.id}>
-                          <ProjectTaskRow item={item} onOpen={setEditing} onStatus={(row, status) => void setStatus(row, status)} />
-                          {(nested.children.get(item.id) ?? []).map((child) => (
-                            <div key={child.id} className="pl-7">
-                              <ProjectTaskRow item={child} onOpen={setEditing} onStatus={(row, status) => void setStatus(row, status)} />
-                            </div>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ),
-              )}
-            </div>
+            <TaskList
+              items={tasks.data?.items ?? []}
+              showProject={false}
+              onOpen={setEditing}
+              onStatus={(row, status) => void setStatus(row, status)}
+            />
           )}
         </section>
       ) : null}
       {tab === "meetings" ? (
         <section className="flex flex-col gap-2">
-          <Button variant="add" className="self-start" onClick={() => openCapture({ type: "meeting", projectId: current.id })}>
+          <NewButton className="self-start" onClick={() => openCapture({ type: "meeting", projectId: current.id })}>
             {t("home.meeting")}
-          </Button>
+          </NewButton>
           <ul>
             {meetingRows.map((item) => (
               <li key={item.id}>
@@ -332,13 +315,18 @@ export function ProjectDetailPage() {
               void rename();
             }}
           >
-            <TextField label="Name" value={name} onChange={(event) => setName(event.target.value)} />
+            <TextField
+              label={t("project.name")}
+              value={name}
+              autoFocus
+              onChange={(event) => setName(event.target.value)}
+            />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="consult" onClick={() => setRenaming(false)}>
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" variant="go">
-                Save
+              <Button type="submit" variant="go" disabled={name.trim().length === 0}>
+                {t("common.save")}
               </Button>
             </div>
           </form>
@@ -346,52 +334,6 @@ export function ProjectDetailPage() {
       ) : null}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}
       {creating ? <TaskCreateDialog projectId={current.id} onClose={() => setCreating(false)} /> : null}
-    </div>
-  );
-}
-
-function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]> } {
-  const ids = new Set(items.map((item) => item.id));
-  const children = new Map<string, Item[]>();
-  const roots: Item[] = [];
-  for (const item of items) {
-    if (item.parent_id && ids.has(item.parent_id)) {
-      const list = children.get(item.parent_id) ?? [];
-      list.push(item);
-      children.set(item.parent_id, list);
-    } else {
-      roots.push(item);
-    }
-  }
-  return { roots, children };
-}
-
-function ProjectTaskRow({
-  item,
-  onOpen,
-  onStatus,
-}: {
-  item: Item;
-  onOpen: (item: Item) => void;
-  onStatus: (item: Item, status: ItemStatus) => void;
-}) {
-  const { t } = useI18n();
-  const done = item.status === "done";
-  return (
-    <div className="flex min-h-11 items-center gap-2 rounded-[8px] px-1 hover:bg-interactive">
-      <StatusSelect status={item.status ?? "todo"} onChange={(status) => onStatus(item, status)} />
-      <button type="button" className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpen(item)}>
-        <span className={`min-w-0 flex-1 truncate ${done ? "text-fg-muted line-through" : ""}`}>
-          {item.title || t("common.untitled")}
-        </span>
-        {item.subtask_total > 0 ? (
-          <span className="font-mono text-[12px] text-fg-muted">
-            {item.subtask_done}/{item.subtask_total}
-          </span>
-        ) : null}
-        {item.due_on ? <span className="font-mono text-[13px] text-fg-muted">{item.due_on}</span> : null}
-        <PriorityMark priority={item.priority} />
-      </button>
     </div>
   );
 }

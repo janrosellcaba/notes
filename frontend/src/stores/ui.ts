@@ -9,7 +9,7 @@ export type EditorPreview = "edit" | "preview";
 
 export type CaptureRequest =
   | { type: "note"; projectId: string | null }
-  | { type: "task" }
+  | { type: "task"; dueOn?: string | null; projectId?: string | null }
   | { type: "meeting"; projectId: string | null }
   | { type: "project"; contextId: string | null };
 

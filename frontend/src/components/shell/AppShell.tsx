@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { Outlet, useMatch, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Outlet, useMatch } from "react-router";
 
-import { openDaily } from "../../lib/daily";
+import { todayISO } from "../../lib/dates";
 import { isEditableTarget } from "../../lib/shortcuts";
 import { cn } from "../../lib/cn";
 import { useUi } from "../../stores/ui";
@@ -9,6 +9,7 @@ import { ProjectDialog } from "../capture/ProjectDialog";
 import { QuickNoteSheet } from "../capture/QuickNoteSheet";
 import { QuickTaskBar } from "../capture/QuickTaskBar";
 import { MeetingDialog } from "../capture/MeetingDialog";
+import { DayPanel } from "../home/DayPanel";
 import { OfflineBanner } from "../ui/OfflineBanner";
 import { Toasts } from "../ui/Toast";
 import { BottomNav } from "./BottomNav";
@@ -20,7 +21,7 @@ export function AppShell() {
   const editor = useMatch("/item/:itemId");
   const capture = useUi((state) => state.capture);
   const closeCapture = useUi((state) => state.closeCapture);
-  const navigate = useNavigate();
+  const [todayPanel, setTodayPanel] = useState(false);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -43,14 +44,12 @@ export function AppShell() {
       if (key === "t") useUi.getState().openCapture({ type: "task" });
       if (key === "d") {
         event.preventDefault();
-        void openDaily().then((id) => {
-          if (id) void navigate(`/item/${id}`);
-        });
+        setTodayPanel(true);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate]);
+  }, []);
 
   return (
     <div className="flex h-dvh flex-col bg-canvas text-fg">
@@ -73,13 +72,16 @@ export function AppShell() {
       {capture?.type === "note" ? (
         <QuickNoteSheet projectId={capture.projectId} onClose={closeCapture} />
       ) : null}
-      {capture?.type === "task" ? <QuickTaskBar onClose={closeCapture} /> : null}
+      {capture?.type === "task" ? (
+        <QuickTaskBar dueOn={capture.dueOn ?? null} projectId={capture.projectId ?? null} onClose={closeCapture} />
+      ) : null}
       {capture?.type === "meeting" ? (
         <MeetingDialog projectId={capture.projectId} onClose={closeCapture} />
       ) : null}
       {capture?.type === "project" ? (
         <ProjectDialog contextId={capture.contextId} onClose={closeCapture} />
       ) : null}
+      {todayPanel ? <DayPanel day={todayISO()} onClose={() => setTodayPanel(false)} /> : null}
     </div>
   );
 }

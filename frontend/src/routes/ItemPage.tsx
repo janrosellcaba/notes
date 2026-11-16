@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -5,8 +6,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NoteSurface from "../components/editor/NoteSurface";
 import { ProjectPill } from "../components/editor/ProjectPill";
 import { TranscriptDrawer } from "../components/editor/TranscriptDrawer";
+import { Attachments } from "../components/items/Attachments";
 import { Button } from "../components/ui/Button";
-import { extractTask, getItem, patchItem, restoreItem } from "../lib/api";
+import { IconButton } from "../components/ui/IconButton";
+import { deleteItem, extractTask, getItem, patchItem, restoreItem } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useProjectList } from "../lib/queries";
@@ -38,6 +41,7 @@ export default function ItemPage() {
   });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [status, setStatus] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const state = useRef({ draft: null as Draft | null, saved: null as Draft | null, saving: false, pending: false });
   const timer = useRef<number | null>(null);
   const alive = useRef(true);
@@ -135,6 +139,20 @@ export default function ItemPage() {
     }
   }
 
+  async function remove() {
+    if (!item.data) return;
+    try {
+      await flushRef.current();
+      await deleteItem(item.data.id);
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+      await queryClient.invalidateQueries({ queryKey: ["home"] });
+      void navigate(-1);
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
+      setConfirmDelete(false);
+    }
+  }
+
   if (item.isPending || !draft) return <p className="text-fg-muted">{t("common.loading")}</p>;
   if (item.isError || !item.data) return <p>{t("editor.unavailable")}</p>;
   const current = item.data;
@@ -154,6 +172,15 @@ export default function ItemPage() {
         <p className="ml-auto font-mono text-[13px] text-fg-muted" aria-live="polite">
           {status}
         </p>
+        {current.deleted_at ? null : confirmDelete ? (
+          <Button variant="consult" tone="danger" onClick={() => void remove()}>
+            {t("inbox.deleteConfirm")}
+          </Button>
+        ) : (
+          <IconButton label={t("common.delete")} onClick={() => setConfirmDelete(true)}>
+            <Trash2 size={14} />
+          </IconButton>
+        )}
       </header>
       <input
         value={draft.title}
@@ -170,6 +197,9 @@ export default function ItemPage() {
       {meeting ? (
         <TranscriptDrawer value={draft.transcript} onChange={(transcript) => patchDraft({ transcript })} />
       ) : null}
+      <div className="mt-4 px-1">
+        <Attachments itemId={current.id} />
+      </div>
       {current.deleted_at ? (
         <p className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-border px-3 py-2 text-[13px]">
           {t("editor.inTrash")}

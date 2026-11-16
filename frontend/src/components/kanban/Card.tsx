@@ -2,7 +2,6 @@ import type { DraggableAttributes } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CSSProperties } from "react";
-import { Link } from "react-router";
 
 import { useI18n } from "../../lib/i18n";
 import type { Item } from "../../types/api";
@@ -14,11 +13,13 @@ import type { ColumnStatus } from "./columns";
 export function TaskCard({
   item,
   showProject,
+  onOpen,
   onMove,
   drag,
 }: {
   item: Item;
   showProject: boolean;
+  onOpen: (item: Item) => void;
   onMove: (status: ColumnStatus) => void;
   drag?: {
     setNodeRef: (node: HTMLElement | null) => void;
@@ -42,9 +43,14 @@ export function TaskCard({
       {...drag?.listeners}
     >
       <div className="flex items-start justify-between gap-2">
-        <Link to={`/item/${item.id}`} className="min-w-0 flex-1 font-medium">
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left text-[13px] font-medium hover:underline"
+          onClick={() => onOpen(item)}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
           {item.title || t("common.untitled")}
-        </Link>
+        </button>
         <PriorityMark priority={item.priority ?? "none"} />
       </div>
       {item.subtask_total > 0 ? (
@@ -57,7 +63,7 @@ export function TaskCard({
           <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} />
         </div>
       ) : null}
-      <div className="mt-1">
+      <div className="mt-1" onPointerDown={(event) => event.stopPropagation()}>
         <MoveToMenu status={(item.status ?? "todo") as ColumnStatus} onMove={onMove} />
       </div>
     </article>
@@ -67,10 +73,12 @@ export function TaskCard({
 export function SortableTaskCard({
   item,
   showProject,
+  onOpen,
   onMove,
 }: {
   item: Item;
   showProject: boolean;
+  onOpen: (item: Item) => void;
   onMove: (status: ColumnStatus) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -78,6 +86,7 @@ export function SortableTaskCard({
     <TaskCard
       item={item}
       showProject={showProject}
+      onOpen={onOpen}
       onMove={onMove}
       drag={{
         setNodeRef,

@@ -1,4 +1,4 @@
-import type { Item, ItemPriority } from "../types/api";
+import type { Item, ItemPriority, ItemStatus } from "../types/api";
 
 export function todayLabel(now = new Date()): string {
   return now.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
@@ -61,6 +61,27 @@ export function groupTasks(tasks: Item[], today: string) {
   const upcoming = tasks.filter((task) => task.due_on !== null && task.due_on > today).sort(byPriority);
   const undated = tasks.filter((task) => task.due_on === null).sort(byPriority);
   return { overdue, today: dueToday, upcoming, none: undated };
+}
+
+/** List view order — mirrors a simplified Linear workflow. */
+export const LIST_STATUS_ORDER: ItemStatus[] = ["in_progress", "todo", "backlog", "blocked", "done"];
+
+export function groupTasksByStatus(tasks: Item[]): Record<ItemStatus, Item[]> {
+  const groups: Record<ItemStatus, Item[]> = {
+    backlog: [],
+    todo: [],
+    in_progress: [],
+    blocked: [],
+    done: [],
+  };
+  for (const task of tasks) {
+    const status = task.status ?? "todo";
+    groups[status].push(task);
+  }
+  for (const status of LIST_STATUS_ORDER) {
+    groups[status].sort(byPriority);
+  }
+  return groups;
 }
 
 export function safeNext(value: string | null): string {

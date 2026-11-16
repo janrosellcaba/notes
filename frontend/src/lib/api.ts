@@ -204,10 +204,6 @@ export function lookupTitle(title: string): Promise<{ id: string; type: string; 
   return api(`/api/items/lookup?title=${encodeURIComponent(title)}`);
 }
 
-export function ensureDaily(day: string): Promise<Item> {
-  return api<Item>(`/api/items/daily/${encodeURIComponent(day)}`, { method: "PUT" });
-}
-
 export function listBacklinks(id: string): Promise<ItemList> {
   return api<ItemList>(`/api/items/${encodeURIComponent(id)}/backlinks`);
 }

@@ -76,6 +76,7 @@ export function PlainColumn({
   label,
   items,
   showProject,
+  onOpen,
   onAdd,
   onMove,
   minimized,
@@ -84,6 +85,7 @@ export function PlainColumn({
   label: string;
   items: Item[];
   showProject: boolean;
+  onOpen: (item: Item) => void;
   onAdd: (title: string) => void;
   onMove: (item: Item, status: ColumnStatus) => void;
   minimized: boolean;
@@ -93,7 +95,13 @@ export function PlainColumn({
     <Frame label={label} count={items.length} minimized={minimized} onToggle={onToggle}>
       <div className="flex min-h-24 flex-col gap-2">
         {items.map((item) => (
-          <TaskCard key={item.id} item={item} showProject={showProject} onMove={(status) => onMove(item, status)} />
+          <TaskCard
+            key={item.id}
+            item={item}
+            showProject={showProject}
+            onOpen={onOpen}
+            onMove={(status) => onMove(item, status)}
+          />
         ))}
         <AddCard label={label} onAdd={onAdd} />
       </div>
@@ -106,6 +114,7 @@ export function DropColumn({
   label,
   items,
   showProject,
+  onOpen,
   onAdd,
   onMove,
   minimized,
@@ -115,6 +124,7 @@ export function DropColumn({
   label: string;
   items: Item[];
   showProject: boolean;
+  onOpen: (item: Item) => void;
   onAdd: (title: string) => void;
   onMove: (item: Item, status: ColumnStatus) => void;
   minimized: boolean;
@@ -126,7 +136,13 @@ export function DropColumn({
       <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
         <div ref={droppable.setNodeRef} className="flex min-h-24 flex-col gap-2">
           {items.map((item) => (
-            <SortableTaskCard key={item.id} item={item} showProject={showProject} onMove={(next) => onMove(item, next)} />
+            <SortableTaskCard
+              key={item.id}
+              item={item}
+              showProject={showProject}
+              onOpen={onOpen}
+              onMove={(next) => onMove(item, next)}
+            />
           ))}
           <AddCard label={label} onAdd={onAdd} />
         </div>

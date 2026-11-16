@@ -17,7 +17,8 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
   const contextId = useUi((state) => state.contextId);
   const { t } = useI18n();
   const [existingId, setExistingId] = useState("");
-  const [title, setTitle] = useState(() => meetingTitle());
+  const [initialTitle] = useState(() => meetingTitle());
+  const [title, setTitle] = useState(initialTitle);
   const [notes, setNotes] = useState("");
   const [transcript, setTranscript] = useState("");
   const [pending, setPending] = useState(false);
@@ -65,18 +66,22 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
 
   function startNew() {
     setExistingId("");
-    setTitle(meetingTitle());
+    setTitle(initialTitle);
     setNotes("");
     setTranscript("");
   }
 
+  const titled = title.trim().length > 0 && title.trim() !== initialTitle;
+  const hasContent = titled || notes.trim().length > 0 || transcript.trim().length > 0;
+
   async function submit() {
     if (pending || loadingExisting) return;
+    if (!existingId && !hasContent) return;
     setPending(true);
     try {
       if (existingId) {
         const meeting = await patchItem(existingId, {
-          title: title.trim() || meetingTitle(),
+          title: title.trim() || initialTitle,
           body_md: notes,
           transcript_raw: transcript.trim() ? transcript : null,
         });
@@ -86,7 +91,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
       }
       const meeting = await createItem({
         type: "meeting",
-        title: title.trim() || meetingTitle(),
+        title: title.trim() || initialTitle,
         body_md: notes,
         transcript_raw: transcript.trim() ? transcript : null,
         project_id: projectId,
@@ -159,7 +164,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
             </select>
           </div>
         </div>
-        <Button type="submit" variant="go" disabled={pending || loadingExisting}>
+        <Button type="submit" variant="go" disabled={pending || loadingExisting || (!existingId && !hasContent)}>
           {existingId ? t("meeting.save") : t("common.create")}
         </Button>
       </form>

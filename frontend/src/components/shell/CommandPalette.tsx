@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
 import { searchItems } from "../../lib/api";
-import { openDaily } from "../../lib/daily";
 import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/cn";
 import { searchTokens } from "../../lib/dates";
@@ -65,15 +64,11 @@ export function CommandPalette() {
       },
       {
         kind: "action",
-        id: "daily",
-        label: t("search.todayNote"),
+        id: "calendar",
+        label: t("search.openCalendar"),
         icon: null,
         color: null,
-        run: () => {
-          void openDaily().then((id) => {
-            if (id) void navigate(`/item/${id}`);
-          });
-        },
+        run: () => void navigate("/calendar"),
       },
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,

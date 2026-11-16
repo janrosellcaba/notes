@@ -8,7 +8,7 @@ type Variant = Intent | LegacyVariant;
 type Tone = "default" | "danger";
 
 const intents: Record<Intent, string> = {
-  add: "border border-border bg-elevated text-fg hover:bg-interactive",
+  add: "border border-transparent bg-transparent text-fg-secondary hover:bg-interactive hover:text-fg",
   consult: "text-fg-secondary hover:bg-interactive hover:text-fg",
   go: "bg-fg text-canvas",
 };

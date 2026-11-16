@@ -84,7 +84,7 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
           <Button type="button" variant="consult" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button type="submit" variant="go" disabled={pending}>
+          <Button type="submit" variant="go" disabled={pending || name.trim().length === 0}>
             {t("common.create")}
           </Button>
         </div>
