@@ -14,7 +14,7 @@ import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
-import type { Item, ItemFilters, ItemStatus } from "../types/api";
+import type { Item, ItemFilters, ItemPriority, ItemStatus } from "../types/api";
 
 export function TasksPage() {
   const [params, setParams] = useSearchParams();
@@ -66,6 +66,20 @@ export function TasksPage() {
     }
   }
 
+  async function setPriority(item: Item, priority: ItemPriority) {
+    if (item.priority === priority) return;
+    const lists = snapshotLists(queryClient);
+    mapItem(queryClient, item.id, (current) => ({ ...current, priority }));
+    try {
+      const saved = await patchItem(item.id, { priority });
+      mapItem(queryClient, item.id, () => saved);
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+    } catch (error) {
+      restoreLists(queryClient, lists);
+      pushToast(error instanceof Error ? error.message : "Could not update the task");
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <PageHeader
@@ -92,6 +106,7 @@ export function TasksPage() {
           items={tasks.data?.items ?? []}
           onOpen={setEditing}
           onStatus={(row, status) => void setStatus(row, status)}
+          onPriority={(row, priority) => void setPriority(row, priority)}
         />
       )}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}

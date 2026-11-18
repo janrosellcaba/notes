@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { readBoardOrder, writeBoardOrder, type BoardStatus } from "../lib/board";
 import { readLogoStyle, writeLogoStyle, type LogoStyle } from "../lib/logo";
 import { readTaskFields, writeTaskFields, type TaskField, type TaskFieldVisibility } from "../lib/taskFields";
-import { applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
+import { applyFavicon, applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
 
 export type TasksView = "list" | "board";
 export type EditorPreview = "edit" | "preview";
@@ -130,6 +130,7 @@ export const useUi = create<UiState>((set, get) => ({
   },
   setLogoStyle: (logoStyle) => {
     writeLogoStyle(logoStyle);
+    applyFavicon(get().theme, logoStyle);
     set({ logoStyle });
   },
   setBoardOrder: (boardOrder) => {

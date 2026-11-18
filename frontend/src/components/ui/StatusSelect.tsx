@@ -11,7 +11,7 @@ const ICONS: Record<ItemStatus, typeof Circle> = {
   backlog: CircleDashed,
   todo: Circle,
   in_progress: CircleDot,
-  blocked: Ban,
+  cancelled: Ban,
   done: CheckCircle2,
 };
 
@@ -19,7 +19,7 @@ const TONE: Record<ItemStatus, string> = {
   backlog: "text-fg-muted",
   todo: "text-fg-secondary",
   in_progress: "text-status-progress",
-  blocked: "text-status-blocked",
+  cancelled: "text-status-blocked",
   done: "text-status-done",
 };
 

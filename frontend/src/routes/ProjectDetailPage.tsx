@@ -21,16 +21,14 @@ import { relativeTime, todayISO } from "../lib/dates";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useUi } from "../stores/ui";
-import type { Item, ItemFilters, ItemStatus, ProjectStatus } from "../types/api";
+import type { Item, ItemFilters, ItemPriority, ItemStatus, ProjectStatus } from "../types/api";
 
 type Tab = "notes" | "tasks" | "meetings" | "calendar";
 type TasksView = "list" | "board";
 
 function tabFrom(value: string | null): Tab {
-  if (value === "tasks" || value === "board" || value === "meetings" || value === "calendar") {
-    return value === "board" ? "tasks" : value;
-  }
-  return "notes";
+  if (value === "notes" || value === "meetings" || value === "calendar") return value;
+  return "tasks";
 }
 
 function tasksViewFrom(tab: string | null, view: string | null, fallback: TasksView): TasksView {
@@ -92,7 +90,7 @@ export function ProjectDetailPage() {
 
   function selectTab(next: Tab) {
     const copy = new URLSearchParams(params);
-    if (next === "notes") copy.delete("tab");
+    if (next === "tasks") copy.delete("tab");
     else copy.set("tab", next);
     if (next !== "tasks") copy.delete("view");
     setParams(copy, { replace: true });
@@ -155,6 +153,20 @@ export function ProjectDetailPage() {
       mapItem(queryClient, item.id, () => saved);
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
+    } catch (error) {
+      restoreLists(queryClient, lists);
+      pushToast(error instanceof Error ? error.message : "Could not update the task");
+    }
+  }
+
+  async function setPriority(item: Item, priority: ItemPriority) {
+    if (item.priority === priority) return;
+    const lists = snapshotLists(queryClient);
+    mapItem(queryClient, item.id, (current) => ({ ...current, priority }));
+    try {
+      const saved = await patchItem(item.id, { priority });
+      mapItem(queryClient, item.id, () => saved);
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
     } catch (error) {
       restoreLists(queryClient, lists);
       pushToast(error instanceof Error ? error.message : "Could not update the task");
@@ -328,6 +340,7 @@ export function ProjectDetailPage() {
               showProject={false}
               onOpen={setEditing}
               onStatus={(row, status) => void setStatus(row, status)}
+              onPriority={(row, priority) => void setPriority(row, priority)}
             />
           )}
         </section>

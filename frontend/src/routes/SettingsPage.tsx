@@ -7,11 +7,13 @@ import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
 import { BrandMark } from "../components/ui/BrandMark";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
+import { Kbd } from "../components/ui/Kbd";
 import { Modal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { TextField } from "../components/ui/TextField";
 import { LOGO_OPTIONS, type LogoStyle } from "../lib/logo";
+import { modKeyLabel } from "../lib/shortcuts";
 import {
   changePassword,
   createContext,
@@ -31,8 +33,17 @@ import { useUi } from "../stores/ui";
 const SECTIONS = [
   { id: "account", label: "settings.account" },
   { id: "preferences", label: "settings.preferences" },
+  { id: "shortcuts", label: "settings.shortcuts" },
   { id: "contexts", label: "settings.contexts" },
   { id: "data", label: "settings.data" },
+] as const;
+
+const SHORTCUTS = [
+  { keys: ["Mod", "K"], label: "shortcut.search" },
+  { keys: ["C"], label: "shortcut.note" },
+  { keys: ["T"], label: "shortcut.task" },
+  { keys: ["D"], label: "shortcut.daily" },
+  { keys: ["Esc"], label: "shortcut.close" },
 ] as const;
 
 const fieldClass =
@@ -373,6 +384,24 @@ export function SettingsPage() {
                 ))}
               </select>
             </div>
+          </Panel>
+
+          <Panel id="shortcuts" title={t("settings.shortcuts")} description={t("settings.shortcutsDetail")}>
+            <ul className="flex flex-col">
+              {SHORTCUTS.map((shortcut) => (
+                <li
+                  key={shortcut.label}
+                  className="flex items-center justify-between gap-3 border-t border-border-subtle py-2.5 first:border-t-0 first:pt-0"
+                >
+                  <span className="text-[13px]">{t(shortcut.label)}</span>
+                  <span className="inline-flex items-center gap-1">
+                    {shortcut.keys.map((key) => (
+                      <Kbd key={key}>{key === "Mod" ? modKeyLabel().replace("+", "") : key}</Kbd>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </Panel>
 
           <Panel id="contexts" title={t("settings.contexts")} description={t("settings.contextsDetail")}>

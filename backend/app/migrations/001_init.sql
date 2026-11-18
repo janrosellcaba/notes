@@ -57,7 +57,7 @@ CREATE TABLE items (
   CHECK (type IN ('note', 'task', 'meeting')),
   CHECK (length(title) <= 500),
   CHECK (pinned IN (0, 1)),
-  CHECK (status IS NULL OR status IN ('backlog', 'todo', 'in_progress', 'blocked', 'done')),
+  CHECK (status IS NULL OR status IN ('backlog', 'todo', 'in_progress', 'cancelled', 'done')),
   CHECK (priority IS NULL OR priority IN ('none', 'low', 'medium', 'high', 'urgent')),
   CHECK (due_on IS NULL OR due_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
   CHECK (calendar_provider IS NULL OR calendar_provider IN ('google', 'microsoft')),

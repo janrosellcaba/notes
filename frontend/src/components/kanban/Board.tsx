@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { mapItem, restoreLists, snapshotLists } from "../../lib/cache";
 import { filedContext } from "../../lib/capture";
 import { createItem, moveItem, newIdempotencyKey } from "../../lib/api";
+import { byPriorityThenCreated, COLLAPSED_BY_DEFAULT } from "../../lib/dates";
 import { useI18n, type MessageKey } from "../../lib/i18n";
 import { useDesktop } from "../../lib/useDesktop";
 import { useUi } from "../../stores/ui";
@@ -26,9 +27,7 @@ function sameProject(left: Item, right: Item): boolean {
 }
 
 function columnItems(items: Item[], status: ItemStatus): Item[] {
-  return items
-    .filter((item) => item.status === status)
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.created_at.localeCompare(b.created_at));
+  return items.filter((item) => item.status === status).sort(byPriorityThenCreated);
 }
 
 function around(items: Item[], item: Item, status: ItemStatus): { before: string | null; after: string | null } {
@@ -55,7 +54,7 @@ export function Board({
   const order = useUi((state) => state.boardOrder);
   const { t } = useI18n();
   const [openEmpty, setOpenEmpty] = useState<string[]>([]);
-  const [closed, setClosed] = useState<string[]>([]);
+  const [closed, setClosed] = useState<string[]>(() => [...COLLAPSED_BY_DEFAULT]);
 
   function minimized(status: ColumnStatus, count: number) {
     if (count === 0) return !openEmpty.includes(status);

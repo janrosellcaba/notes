@@ -92,7 +92,7 @@ MEETING_TITLES = [
     "Support triage",
 ]
 
-STATUSES = ["backlog", "todo", "in_progress", "blocked", "done"]
+STATUSES = ["backlog", "todo", "in_progress", "cancelled", "done"]
 PRIORITIES = ["none", "low", "medium", "high", "urgent"]
 
 

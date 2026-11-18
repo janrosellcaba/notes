@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.project import ContextRef
 
 ItemType = Literal["note", "task", "meeting"]
-ItemStatus = Literal["backlog", "todo", "in_progress", "blocked", "done"]
+ItemStatus = Literal["backlog", "todo", "in_progress", "cancelled", "done"]
 ItemPriority = Literal["none", "low", "medium", "high", "urgent"]
 DueFilter = Literal["overdue", "today", "upcoming", "none"]
 

@@ -5,8 +5,11 @@ import type { CSSProperties } from "react";
 
 import { useI18n } from "../../lib/i18n";
 import type { Item } from "../../types/api";
+import { useQueryClient } from "@tanstack/react-query";
+
+import { patchItem } from "../../lib/api";
 import { ContextBadge } from "../ui/ContextBadge";
-import { PriorityMark } from "../ui/PriorityMark";
+import { PrioritySelect } from "../ui/PrioritySelect";
 import { MoveToMenu } from "./MoveToMenu";
 import type { ColumnStatus } from "./columns";
 
@@ -29,6 +32,7 @@ export function TaskCard({
   };
 }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const badge = item.project
     ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
     : item.context
@@ -43,7 +47,14 @@ export function TaskCard({
       {...drag?.listeners}
     >
       <div className="flex items-start gap-2">
-        <PriorityMark priority={item.priority ?? "none"} className="mt-0.5" />
+        <div className="mt-0.5" onPointerDown={(event) => event.stopPropagation()}>
+          <PrioritySelect
+            priority={item.priority ?? "none"}
+            onChange={(priority) =>
+              void patchItem(item.id, { priority }).then(() => queryClient.invalidateQueries({ queryKey: ["items"] }))
+            }
+          />
+        </div>
         <button
           type="button"
           className="min-w-0 flex-1 text-left text-[13px] font-medium hover:underline"

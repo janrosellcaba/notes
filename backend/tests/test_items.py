@@ -265,3 +265,15 @@ async def test_a_task_can_omit_project_and_keep_optional_details(
     assert nested.json()["detail"][0]["loc"] == ["body", "parent_id"]
     note = await http.post("/api/items", json={"type": "note", "title": "Nope", "assignee": "Marta"})
     assert note.status_code == 422
+
+
+async def test_task_status_cancelled_round_trips(authed: tuple[object, AsyncClient]) -> None:
+    _app, http = authed
+    created = await http.post("/api/items", json={"type": "task", "title": "Drop it"})
+    assert created.status_code == 201, created.text
+    task_id = created.json()["id"]
+    cancelled = await http.patch(f"/api/items/{task_id}", json={"status": "cancelled"})
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["status"] == "cancelled"
+    blocked = await http.patch(f"/api/items/{task_id}", json={"status": "blocked"})
+    assert blocked.status_code == 422, blocked.text

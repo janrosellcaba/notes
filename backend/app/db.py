@@ -291,7 +291,43 @@ class Database:
             await conn.execute(
                 "UPDATE projects SET status = 'done' WHERE archived_at IS NOT NULL AND status = 'active'"
             )
+        await self._migrate_blocked_to_cancelled()
         await self._ensure_tenancy()
+
+    async def _migrate_blocked_to_cancelled(self) -> None:
+        """Rename task status blocked → cancelled, including the CHECK constraint."""
+        conn = self._connection()
+        cursor = await conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'items'")
+        row = await cursor.fetchone()
+        await cursor.close()
+        if row is None:
+            return
+        sql = str(row[0] or "")
+        if "cancelled" in sql and "blocked" not in sql:
+            return
+        if "blocked" not in sql:
+            # Schema already loose or custom — still remap leftover rows if possible.
+            try:
+                await conn.execute("UPDATE items SET status = 'cancelled' WHERE status = 'blocked'")
+            except Exception:
+                pass
+            return
+
+        new_sql = sql.replace(
+            "'backlog', 'todo', 'in_progress', 'blocked', 'done'",
+            "'backlog', 'todo', 'in_progress', 'cancelled', 'done'",
+        )
+        if new_sql == sql:
+            new_sql = sql.replace("blocked", "cancelled")
+        await conn.execute("PRAGMA writable_schema=ON")
+        await conn.execute(
+            "UPDATE sqlite_master SET sql = ? WHERE type = 'table' AND name = 'items'",
+            (new_sql,),
+        )
+        await conn.execute("PRAGMA writable_schema=OFF")
+        await conn.execute("UPDATE items SET status = 'cancelled' WHERE status = 'blocked'")
+        # Force the connection to reload schema definitions.
+        await conn.execute("PRAGMA schema_version = schema_version + 1")
 
     async def _ensure_tenancy(self) -> None:
         """Isolate contexts, projects, and items by user_id."""

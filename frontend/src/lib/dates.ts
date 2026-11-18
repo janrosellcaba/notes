@@ -49,10 +49,17 @@ const PRIORITY_RANK: Record<ItemPriority, number> = {
   none: 4,
 };
 
-function byPriority(left: Item, right: Item): number {
+/** Higher priority first, then oldest created first. */
+export function byPriorityThenCreated(left: Item, right: Item): number {
   const rank = PRIORITY_RANK[left.priority ?? "none"] - PRIORITY_RANK[right.priority ?? "none"];
   if (rank !== 0) return rank;
-  return left.title.localeCompare(right.title);
+  const created = left.created_at.localeCompare(right.created_at);
+  if (created !== 0) return created;
+  return left.id.localeCompare(right.id);
+}
+
+function byPriority(left: Item, right: Item): number {
+  return byPriorityThenCreated(left, right);
 }
 
 export function groupTasks(tasks: Item[], today: string) {
@@ -64,14 +71,17 @@ export function groupTasks(tasks: Item[], today: string) {
 }
 
 /** List view order — mirrors a simplified Linear workflow. */
-export const LIST_STATUS_ORDER: ItemStatus[] = ["in_progress", "todo", "backlog", "blocked", "done"];
+export const LIST_STATUS_ORDER: ItemStatus[] = ["in_progress", "todo", "backlog", "cancelled", "done"];
+
+/** Closed by default in list/board. */
+export const COLLAPSED_BY_DEFAULT: ItemStatus[] = ["cancelled", "done"];
 
 export function groupTasksByStatus(tasks: Item[]): Record<ItemStatus, Item[]> {
   const groups: Record<ItemStatus, Item[]> = {
     backlog: [],
     todo: [],
     in_progress: [],
-    blocked: [],
+    cancelled: [],
     done: [],
   };
   for (const task of tasks) {
@@ -79,7 +89,7 @@ export function groupTasksByStatus(tasks: Item[]): Record<ItemStatus, Item[]> {
     groups[status].push(task);
   }
   for (const status of LIST_STATUS_ORDER) {
-    groups[status].sort(byPriority);
+    groups[status].sort(byPriorityThenCreated);
   }
   return groups;
 }

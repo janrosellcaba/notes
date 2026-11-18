@@ -10,16 +10,17 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import { groupTasksByStatus, LIST_STATUS_ORDER } from "../../lib/dates";
+import { COLLAPSED_BY_DEFAULT, groupTasksByStatus, LIST_STATUS_ORDER } from "../../lib/dates";
 import { useI18n, type MessageKey } from "../../lib/i18n";
 import { useDesktop } from "../../lib/useDesktop";
-import type { Item, ItemStatus } from "../../types/api";
+import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { columnId, statusFromDrop } from "../kanban/columns";
+import { Button } from "../ui/Button";
 import { ContextBadge } from "../ui/ContextBadge";
-import { PriorityMark } from "../ui/PriorityMark";
+import { PrioritySelect } from "../ui/PrioritySelect";
 import { StatusSelect } from "../ui/StatusSelect";
 
 export function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]> } {
@@ -43,21 +44,68 @@ export function TaskList({
   showProject = true,
   onOpen,
   onStatus,
+  onPriority,
 }: {
   items: Item[];
   showProject?: boolean;
   onOpen: (item: Item) => void;
   onStatus: (item: Item, status: ItemStatus) => void;
+  onPriority?: (item: Item, priority: ItemPriority) => void;
 }) {
   const { t } = useI18n();
   const desktop = useDesktop();
   const nested = nestTasks(items);
   const groups = groupTasksByStatus(nested.roots);
-  const [doneOpen, setDoneOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(COLLAPSED_BY_DEFAULT.map((status) => [status, true])),
+  );
+  const [selected, setSelected] = useState<string[]>([]);
+  const [lastClicked, setLastClicked] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor),
   );
+
+  const flatRoots = useMemo(
+    () => LIST_STATUS_ORDER.flatMap((status) => groups[status]),
+    [groups],
+  );
+
+  function toggleCollapsed(status: ItemStatus) {
+    setCollapsed((current) => ({ ...current, [status]: !current[status] }));
+  }
+
+  function selectRange(fromId: string, toId: string) {
+    const from = flatRoots.findIndex((item) => item.id === fromId);
+    const to = flatRoots.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0) return;
+    const [start, end] = from < to ? [from, to] : [to, from];
+    setSelected(flatRoots.slice(start, end + 1).map((item) => item.id));
+  }
+
+  function onRowSelect(item: Item, event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) {
+    if (event.shiftKey && lastClicked) {
+      selectRange(lastClicked, item.id);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey) {
+      setSelected((current) =>
+        current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id],
+      );
+      setLastClicked(item.id);
+      return;
+    }
+    setSelected((current) => (current.length === 1 && current[0] === item.id ? [] : [item.id]));
+    setLastClicked(item.id);
+  }
+
+  function bulkStatus(status: ItemStatus) {
+    const chosen = nested.roots.filter((item) => selected.includes(item.id));
+    for (const item of chosen) {
+      if (item.status !== status) onStatus(item, status);
+    }
+    setSelected([]);
+  }
 
   function onDragEnd(event: DragEndEvent) {
     const active = nested.roots.find((item) => item.id === String(event.active.id));
@@ -67,24 +115,46 @@ export function TaskList({
     const overItem = nested.roots.find((item) => item.id === overId);
     const status = statusFromDrop(overId) ?? overItem?.status ?? null;
     if (!status || status === active.status) return;
-    onStatus(active, status);
+    const moving = selected.includes(active.id)
+      ? nested.roots.filter((item) => selected.includes(item.id))
+      : [active];
+    for (const item of moving) {
+      if (item.status !== status) onStatus(item, status);
+    }
   }
 
   const body = (
     <div className="flex flex-col gap-5">
+      {selected.length > 0 ? (
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-elevated px-3 py-2">
+          <span className="text-[13px] text-fg-secondary">{t("tasks.selected", { count: String(selected.length) })}</span>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("in_progress")}>
+            {t("tasks.bulkInProgress")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("todo")}>
+            {t("tasks.bulkTodo")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("done")}>
+            {t("tasks.bulkDone")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => setSelected([])}>
+            {t("tasks.clearSelection")}
+          </Button>
+        </div>
+      ) : null}
       {LIST_STATUS_ORDER.map((status) => {
         const rows = groups[status];
-        const isDone = status === "done";
-        if (isDone && !doneOpen) {
+        const isCollapsed = Boolean(collapsed[status]);
+        if (isCollapsed) {
           return (
             <DropSection key={status} status={status}>
               <button
                 type="button"
                 className="flex items-center gap-1.5 self-start text-[13px] text-fg-muted hover:text-fg"
-                onClick={() => setDoneOpen(true)}
+                onClick={() => toggleCollapsed(status)}
               >
                 <ChevronRight size={14} />
-                {t("board.done")}
+                {t(`board.${status}` as MessageKey)}
                 <span className="font-mono text-[12px]">{rows.length}</span>
               </button>
             </DropSection>
@@ -95,12 +165,9 @@ export function TaskList({
             <button
               type="button"
               className="mb-1.5 flex items-center gap-1.5 text-[13px] text-fg-muted hover:text-fg"
-              onClick={() => {
-                if (isDone) setDoneOpen(false);
-              }}
-              disabled={!isDone}
+              onClick={() => toggleCollapsed(status)}
             >
-              {isDone ? <ChevronDown size={14} /> : null}
+              <ChevronDown size={14} />
               {t(`board.${status}` as MessageKey)}
               <span className="font-mono text-[12px]">{rows.length}</span>
             </button>
@@ -115,18 +182,24 @@ export function TaskList({
                     <TaskListRow
                       item={item}
                       showProject={showProject}
+                      selected={selected.includes(item.id)}
                       draggable={desktop}
                       onOpen={onOpen}
+                      onSelect={onRowSelect}
                       onStatus={onStatus}
+                      onPriority={onPriority}
                     />
                     {(nested.children.get(item.id) ?? []).map((child) => (
                       <div key={child.id} className="pl-7">
                         <TaskListRow
                           item={child}
                           showProject={showProject}
+                          selected={selected.includes(child.id)}
                           draggable={false}
                           onOpen={onOpen}
+                          onSelect={onRowSelect}
                           onStatus={onStatus}
+                          onPriority={onPriority}
                         />
                       </div>
                     ))}
@@ -164,15 +237,21 @@ function DropSection({ status, children }: { status: ItemStatus; children: React
 function TaskListRow({
   item,
   showProject,
+  selected,
   draggable,
   onOpen,
+  onSelect,
   onStatus,
+  onPriority,
 }: {
   item: Item;
   showProject: boolean;
+  selected: boolean;
   draggable: boolean;
   onOpen: (item: Item) => void;
+  onSelect: (item: Item, event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
   onStatus: (item: Item, status: ItemStatus) => void;
+  onPriority?: (item: Item, priority: ItemPriority) => void;
 }) {
   const { t } = useI18n();
   const drag = useDraggable({ id: item.id, disabled: !draggable });
@@ -193,17 +272,47 @@ function TaskListRow({
     <div
       ref={draggable ? drag.setNodeRef : undefined}
       style={style}
-      className="group flex min-h-9 items-center gap-1.5 rounded-md px-1 hover:bg-interactive"
-      {...(draggable ? { ...drag.attributes, ...drag.listeners } : {})}
+      className={`group flex min-h-9 items-center gap-1 rounded-md px-1 ${
+        selected ? "bg-interactive ring-1 ring-border-strong" : "hover:bg-interactive"
+      }`}
     >
+      {draggable ? (
+        <button
+          type="button"
+          className="inline-flex h-8 w-6 shrink-0 cursor-grab items-center justify-center text-fg-muted hover:text-fg active:cursor-grabbing"
+          aria-label={t("tasks.drag")}
+          {...drag.listeners}
+          {...drag.attributes}
+        >
+          <GripVertical size={14} />
+        </button>
+      ) : (
+        <span className="w-6 shrink-0" />
+      )}
+      <input
+        type="checkbox"
+        checked={selected}
+        aria-label={t("tasks.select")}
+        className="h-3.5 w-3.5 shrink-0 accent-[var(--color-fg)]"
+        onChange={() => undefined}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(item, event);
+        }}
+      />
       <StatusSelect status={item.status ?? "todo"} showLabel={false} onChange={(status) => onStatus(item, status)} />
-      <PriorityMark priority={item.priority} />
+      {onPriority ? (
+        <PrioritySelect priority={item.priority} onChange={(priority) => onPriority(item, priority)} />
+      ) : null}
       <button
         type="button"
         className="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 text-left"
-        onClick={() => onOpen(item)}
-        onPointerDown={(event) => {
-          if (draggable) event.stopPropagation();
+        onClick={(event) => {
+          if (event.shiftKey || event.metaKey || event.ctrlKey) {
+            onSelect(item, event);
+            return;
+          }
+          onOpen(item);
         }}
       >
         <span className={`min-w-0 flex-1 truncate text-[13px] ${done ? "text-fg-muted line-through" : ""}`}>

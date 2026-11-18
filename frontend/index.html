@@ -11,13 +11,29 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script>
       try {
-        if (localStorage.getItem("notes.theme") === "light") {
+        var theme = localStorage.getItem("notes.theme") === "light" ? "light" : "dark";
+        var logo = localStorage.getItem("notes.logo");
+        if (theme === "light") {
           document.documentElement.dataset.theme = "light";
           document.documentElement.style.colorScheme = "light";
-          var icon = document.querySelector('link[rel="icon"]');
-          if (icon) icon.href = "/favicon-light.svg";
-          var theme = document.querySelector('meta[name="theme-color"]');
-          if (theme) theme.setAttribute("content", "#fafafa");
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", "#fafafa");
+        }
+        var icon = document.querySelector('link[rel="icon"]');
+        if (icon) {
+          if (logo === "doodle") {
+            icon.href = "/brand/logo1.jpg?v=doodle";
+            icon.type = "image/jpeg";
+          } else if (logo === "smile") {
+            icon.href = "/brand/logo2.jpg?v=smile";
+            icon.type = "image/jpeg";
+          } else if (logo === "threeD") {
+            icon.href = "/brand/logo3.png?v=threeD";
+            icon.type = "image/png";
+          } else if (theme === "light") {
+            icon.href = "/favicon-light.svg";
+            icon.type = "image/svg+xml";
+          }
         }
       } catch (e) {}
     </script>

@@ -1,5 +1,5 @@
 export type ItemType = "note" | "task" | "meeting";
-export type ItemStatus = "backlog" | "todo" | "in_progress" | "blocked" | "done";
+export type ItemStatus = "backlog" | "todo" | "in_progress" | "cancelled" | "done";
 export type ItemPriority = "none" | "low" | "medium" | "high" | "urgent";
 
 export type Context = {

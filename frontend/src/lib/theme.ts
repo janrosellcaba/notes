@@ -1,3 +1,5 @@
+import { LOGO_SRC, readLogoStyle, type LogoStyle } from "./logo";
+
 export type Theme = "dark" | "light";
 
 export const THEME_KEY = "notes.theme";
@@ -10,13 +12,33 @@ export function readTheme(): Theme {
   }
 }
 
-export function applyTheme(theme: Theme): void {
+export function faviconFor(theme: Theme, logo: LogoStyle): { href: string; type: string } {
+  if (logo === "flat") {
+    return {
+      href: theme === "light" ? "/favicon-light.svg" : "/favicon.svg",
+      type: "image/svg+xml",
+    };
+  }
+  const href = LOGO_SRC[logo];
+  return {
+    href,
+    type: href.endsWith(".png") ? "image/png" : "image/jpeg",
+  };
+}
+
+export function applyFavicon(theme: Theme = readTheme(), logo: LogoStyle = readLogoStyle()): void {
+  const icon = document.querySelector('link[rel="icon"]');
+  if (!(icon instanceof HTMLLinkElement)) return;
+  const next = faviconFor(theme, logo);
+  // Force a reload when switching between same-type assets (e.g. jpg → jpg).
+  icon.href = `${next.href}${next.href.includes("?") ? "&" : "?"}v=${encodeURIComponent(logo)}`;
+  icon.type = next.type;
+}
+
+export function applyTheme(theme: Theme, logo: LogoStyle = readLogoStyle()): void {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
-  const icon = document.querySelector('link[rel="icon"]');
-  if (icon instanceof HTMLLinkElement) {
-    icon.href = theme === "light" ? "/favicon-light.svg" : "/favicon.svg";
-  }
+  applyFavicon(theme, logo);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", theme === "light" ? "#fafafa" : "#09090b");
 }

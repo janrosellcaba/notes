@@ -40,8 +40,14 @@ export function AppShell() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
       const key = event.key.toLowerCase();
-      if (key === "c") useUi.getState().openCapture({ type: "note", projectId: null });
-      if (key === "t") useUi.getState().openCapture({ type: "task" });
+      if (key === "c") {
+        event.preventDefault();
+        useUi.getState().openCapture({ type: "note", projectId: null });
+      }
+      if (key === "t") {
+        event.preventDefault();
+        useUi.getState().openCapture({ type: "task" });
+      }
       if (key === "d") {
         event.preventDefault();
         setTodayPanel(true);

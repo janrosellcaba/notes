@@ -15,11 +15,14 @@ function ImageMark({
   size,
   className,
   tone,
+  fit = "cover",
 }: {
   src: string;
   size: number;
   className?: string;
   tone: "dark" | "light";
+  /** cover = edge-to-edge (3D icon tile); contain = padded art on a light tile */
+  fit?: "cover" | "contain";
 }) {
   return (
     <span
@@ -37,8 +40,13 @@ function ImageMark({
         alt=""
         width={size}
         height={size}
-        className={tone === "light" ? "h-full w-full object-contain p-[8%]" : "h-full w-full object-cover"}
+        className={
+          fit === "contain"
+            ? "h-full w-full object-contain p-[8%]"
+            : "h-full w-full object-cover"
+        }
         draggable={false}
+        decoding="async"
       />
     </span>
   );
@@ -59,12 +67,12 @@ export function BrandMark({
   const preferred = useUi((state) => state.logoStyle);
   const logo = style ?? preferred;
   if (logo === "threeD") {
-    // Keep the black squircle from the asset so the white clay mark stays readable in light mode.
-    return <ImageMark src={LOGO_SRC.threeD} size={size} className={className} tone="dark" />;
+    // Cropped 3D icon already fills a black squircle — match the flat mark's footprint.
+    return <ImageMark src={LOGO_SRC.threeD} size={size} className={className} tone="dark" fit="cover" />;
   }
   if (logo === "doodle" || logo === "smile") {
     // Doodle assets are dark/blue ink on white — keep a white tile so they read in dark mode too.
-    return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" />;
+    return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" fit="contain" />;
   }
   return (
     <svg

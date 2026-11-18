@@ -11,7 +11,7 @@ import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
-import { PriorityMark } from "../ui/PriorityMark";
+import { PrioritySelect } from "../ui/PrioritySelect";
 import { StatusSelect } from "../ui/StatusSelect";
 import { Attachments } from "./Attachments";
 
@@ -50,25 +50,6 @@ export function TaskCreateDialog({
   const [pendingSubtasks, setPendingSubtasks] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [pending, setPending] = useState(false);
-  const [keepOpen, setKeepOpen] = useState(false);
-
-  function resetForm(nextKeepOpen = false) {
-    setTitle("");
-    setBatchText("");
-    setBody("");
-    setDue(initialDue ?? "");
-    setStarts("");
-    setAssignee("");
-    setPriority("none");
-    setStatus("todo");
-    setProjectId(initialProjectId ?? "");
-    setContextId("");
-    setSubtask("");
-    setPendingSubtasks([]);
-    setFiles([]);
-    setKeepOpen(nextKeepOpen);
-    setPending(false);
-  }
 
   function addPendingSubtask() {
     const next = subtask.trim();
@@ -105,7 +86,7 @@ export function TaskCreateDialog({
     return created;
   }
 
-  async function submit(options: { close: boolean } = { close: true }) {
+  async function submit() {
     if (pending) return;
     if (batch) {
       const lines = batchText
@@ -120,8 +101,7 @@ export function TaskCreateDialog({
         }
         await queryClient.invalidateQueries({ queryKey: ["items"] });
         await queryClient.invalidateQueries({ queryKey: ["home"] });
-        if (options.close) onClose();
-        else resetForm(true);
+        onClose();
       } catch (error) {
         pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
         setPending(false);
@@ -136,8 +116,7 @@ export function TaskCreateDialog({
       await createOne(nextTitle, { body: body.trim(), subtasks: pendingSubtasks, files });
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
-      if (options.close) onClose();
-      else resetForm(true);
+      onClose();
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
       setPending(false);
@@ -154,28 +133,23 @@ export function TaskCreateDialog({
         className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto p-4"
         onSubmit={(event) => {
           event.preventDefault();
-          void submit({ close: !keepOpen });
+          void submit();
         }}
       >
         <div className="flex flex-wrap items-center gap-2">
-          {!batch ? (
-            <StatusSelect status={status} showLabel={false} onChange={setStatus} />
-          ) : null}
+          {!batch ? <StatusSelect status={status} showLabel={false} onChange={setStatus} /> : null}
           <button
             type="button"
             className={`rounded-md px-2 py-1 text-[12px] ${batch ? "bg-interactive text-fg" : "text-fg-muted hover:text-fg"}`}
-            onClick={() => setBatch((value) => !value)}
+            onClick={() => {
+              setBatch((value) => !value);
+              setTitle("");
+              setBatchText("");
+            }}
+            title={t("tasks.batchHint")}
           >
-            {t("tasks.batch")}
+            {batch ? t("tasks.single") : t("tasks.batch")}
           </button>
-          <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-fg-muted">
-            <input
-              type="checkbox"
-              checked={keepOpen}
-              onChange={(event) => setKeepOpen(event.target.checked)}
-            />
-            {t("tasks.keepOpen")}
-          </label>
         </div>
         {batch ? (
           <textarea
@@ -439,7 +413,14 @@ export function TaskEditor({
               void save({ status: next });
             }}
           />
-          <PriorityMark priority={priority} className="mt-2" />
+          <PrioritySelect
+            priority={priority}
+            className="mt-1"
+            onChange={(next) => {
+              setPriority(next);
+              void save({ priority: next });
+            }}
+          />
           <input
             value={title}
             aria-label={t("editor.title")}
@@ -512,7 +493,14 @@ export function TaskEditor({
                       )
                     }
                   />
-                  <PriorityMark priority={child.priority} />
+                  <PrioritySelect
+                    priority={child.priority}
+                    onChange={(next) =>
+                      void patchItem(child.id, { priority: next }).then(() =>
+                        queryClient.invalidateQueries({ queryKey: ["items"] }),
+                      )
+                    }
+                  />
                   <button type="button" className="min-w-0 flex-1 truncate text-left text-[13px]" onClick={() => onOpen?.(child)}>
                     {child.title}
                   </button>
