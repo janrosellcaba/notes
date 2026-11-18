@@ -209,6 +209,14 @@ export function purgeItem(id: string): Promise<void> {
   return api<void>(`/api/items/${encodeURIComponent(id)}/permanent`, { method: "DELETE" });
 }
 
+export function listTrash(): Promise<ItemList> {
+  return api<ItemList>("/api/items/trash");
+}
+
+export function emptyTrash(): Promise<void> {
+  return api<void>("/api/items/trash", { method: "DELETE" });
+}
+
 export function lookupTitle(title: string): Promise<{ id: string; type: string; title: string }> {
   return api(`/api/items/lookup?title=${encodeURIComponent(title)}`);
 }

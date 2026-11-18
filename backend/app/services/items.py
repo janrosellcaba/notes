@@ -756,6 +756,24 @@ async def purge_item(db: Database, user_id: str, item_id: str) -> None:
     await db.execute("DELETE FROM items WHERE id = ? AND user_id = ?", (item_id, user_id))
 
 
+async def empty_trash(db: Database, user_id: str) -> None:
+    await db.execute(
+        """
+        DELETE FROM idempotency_keys
+        WHERE item_id IN (SELECT id FROM items WHERE user_id = ? AND deleted_at IS NOT NULL)
+        """,
+        (user_id,),
+    )
+    await db.execute(
+        """
+        DELETE FROM attachments
+        WHERE item_id IN (SELECT id FROM items WHERE user_id = ? AND deleted_at IS NOT NULL)
+        """,
+        (user_id,),
+    )
+    await db.execute("DELETE FROM items WHERE user_id = ? AND deleted_at IS NOT NULL", (user_id,))
+
+
 async def purge_expired_trash(db: Database, *, days: int = 30) -> None:
     cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     await db.execute("DELETE FROM items WHERE deleted_at IS NOT NULL AND deleted_at < ?", (cutoff,))

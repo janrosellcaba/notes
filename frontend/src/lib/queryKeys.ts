@@ -11,4 +11,5 @@ export const queryKeys = {
   project: (id: string) => ["project", id] as const,
   projects: (contextId: string) => ["projects", contextId] as const,
   search: (q: string, contextId: string) => ["search", q, contextId] as const,
+  trash: ["trash"] as const,
 };

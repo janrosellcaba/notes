@@ -80,6 +80,7 @@ export async function softDeleteItems(
     await Promise.all(items.map((item) => deleteItem(item.id)));
     await queryClient.invalidateQueries({ queryKey: ["items"] });
     await queryClient.invalidateQueries({ queryKey: ["home"] });
+    await queryClient.invalidateQueries({ queryKey: ["trash"] });
     options.pushToast(options.message, undefined, {
       label: options.undoLabel,
       run: () => {
@@ -88,6 +89,7 @@ export async function softDeleteItems(
             await Promise.all(items.map((item) => restoreItem(item.id)));
             await queryClient.invalidateQueries({ queryKey: ["items"] });
             await queryClient.invalidateQueries({ queryKey: ["home"] });
+            await queryClient.invalidateQueries({ queryKey: ["trash"] });
           } catch (error) {
             options.pushToast(error instanceof Error ? error.message : "Could not restore the task");
           }

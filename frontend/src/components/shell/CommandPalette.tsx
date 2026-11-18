@@ -71,13 +71,40 @@ export function CommandPalette() {
         color: null,
         run: () => void navigate("/calendar"),
       },
+      {
+        kind: "action",
+        id: "tasks-today",
+        label: t("search.tasksToday"),
+        icon: null,
+        color: null,
+        run: () => void navigate("/tasks?due=today"),
+      },
+      {
+        kind: "action",
+        id: "tasks-open",
+        label: t("search.tasksOpen"),
+        icon: null,
+        color: null,
+        run: () => void navigate("/tasks"),
+      },
+      {
+        kind: "action",
+        id: "trash",
+        label: t("search.openTrash"),
+        icon: null,
+        color: null,
+        run: () => void navigate("/trash"),
+      },
       ...(contexts.data?.contexts ?? []).map((context) => ({
         kind: "action" as const,
         id: context.id,
         label: t("search.switch", { name: context.name }),
         icon: context.icon,
         color: context.color,
-        run: () => setContextId(context.id),
+        run: () => {
+          setContextId(context.id);
+          void navigate("/tasks");
+        },
       })),
     ];
     const matched = needle ? actions.filter((row) => row.label.toLowerCase().includes(needle)) : actions;

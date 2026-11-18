@@ -107,7 +107,11 @@ export function HomePage() {
         <h2 className="mb-2 text-[13px] text-fg-muted">{t("home.today")}</h2>
         {home.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}
         {home.isError ? <p className="text-fg-secondary">{t("home.loadError")}</p> : null}
-        {tasks.length === 0 && !home.isPending ? <EmptyState>{t("home.emptyToday")}</EmptyState> : null}
+        {tasks.length === 0 && !home.isPending ? (
+          <EmptyState action={<NewButton onClick={() => openCapture({ type: "task", dueOn: todayISO() })}>{t("tasks.new")}</NewButton>}>
+            {t("home.emptyToday")}
+          </EmptyState>
+        ) : null}
         <ul>
           {tasks.map((item) => (
             <TaskRow key={item.id} item={item} />

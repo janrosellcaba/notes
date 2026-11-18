@@ -8,6 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   StickyNote,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "../ui/Button";
@@ -28,6 +29,7 @@ const DESTINATIONS: Record<
   meetings: { to: "/meetings", label: "nav.meetings", icon: FileText, end: false },
   calendar: { to: "/calendar", label: "nav.calendar", icon: CalendarDays, end: false },
   projects: { to: "/projects", label: "nav.projects", icon: Folder, end: false },
+  trash: { to: "/trash", label: "nav.trash", icon: Trash2, end: false },
 };
 
 export function Sidebar() {

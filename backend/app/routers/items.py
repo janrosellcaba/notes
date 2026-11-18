@@ -101,6 +101,15 @@ async def trash(user: CurrentUser = Depends(get_current_user), db: Database = De
     return ItemList(items=found, next_cursor=None)
 
 
+@router.delete("/trash", status_code=204)
+async def empty_trash(
+    user: CurrentUser = Depends(get_current_user),
+    db: Database = Depends(get_db),
+) -> Response:
+    await items.empty_trash(db, user.id)
+    return Response(status_code=204)
+
+
 @router.get("/lookup", response_model=ItemRef)
 async def lookup(
     title: str,

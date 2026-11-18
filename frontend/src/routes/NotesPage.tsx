@@ -66,7 +66,15 @@ export function NotesPage() {
       </ListFilter>
       {notes.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}
       {notes.isError ? <p className="text-fg-secondary">{t("notes.loadError")}</p> : null}
-      {!notes.isPending && rows.length === 0 ? <EmptyState>{t("notes.empty")}</EmptyState> : null}
+      {!notes.isPending && rows.length === 0 ? (
+        <EmptyState
+          action={
+            <NewButton onClick={() => openCapture({ type: "note", projectId: null })}>{t("home.note")}</NewButton>
+          }
+        >
+          {t("notes.empty")}
+        </EmptyState>
+      ) : null}
       <ul>
         {rows.map((item) => (
           <li key={item.id}>

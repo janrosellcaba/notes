@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { COLLAPSED_BY_DEFAULT, groupTasksByStatus, LIST_STATUS_ORDER } from "../../lib/dates";
 import { useI18n, type MessageKey } from "../../lib/i18n";
+import { isEditableTarget } from "../../lib/shortcuts";
 import { useDesktop } from "../../lib/useDesktop";
 import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { columnId, statusFromDrop } from "../kanban/columns";
@@ -23,6 +24,15 @@ import { ContextBadge } from "../ui/ContextBadge";
 import { Popover } from "../ui/Popover";
 import { PrioritySelect } from "../ui/PrioritySelect";
 import { StatusSelect } from "../ui/StatusSelect";
+
+const STATUS_CYCLE: ItemStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
+const PRIORITY_KEYS: Record<string, ItemPriority> = {
+  "1": "urgent",
+  "2": "high",
+  "3": "medium",
+  "4": "low",
+  "0": "none",
+};
 
 export function nestTasks(items: Item[]): { roots: Item[]; children: Map<string, Item[]> } {
   const ids = new Set(items.map((item) => item.id));
@@ -66,6 +76,7 @@ export function TaskList({
   );
   const [selected, setSelected] = useState<string[]>([]);
   const [lastClicked, setLastClicked] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
@@ -77,12 +88,69 @@ export function TaskList({
   );
 
   useEffect(() => {
+    if (focusedId && !flatRoots.some((item) => item.id === focusedId)) {
+      setFocusedId(flatRoots[0]?.id ?? null);
+    }
+  }, [flatRoots, focusedId]);
+
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelected([]);
+      if (event.key === "Escape") {
+        setSelected([]);
+        setFocusedId(null);
+        return;
+      }
+      if (isEditableTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (flatRoots.length === 0) return;
+      const index = focusedId ? flatRoots.findIndex((item) => item.id === focusedId) : -1;
+      const current = index >= 0 ? flatRoots[index] : null;
+
+      if (event.key === "j" || event.key === "ArrowDown") {
+        event.preventDefault();
+        const next = flatRoots[Math.min(Math.max(index, -1) + 1, flatRoots.length - 1)];
+        if (next) setFocusedId(next.id);
+        return;
+      }
+      if (event.key === "k" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const next = flatRoots[Math.max(index <= 0 ? 0 : index - 1, 0)];
+        if (next) setFocusedId(next.id);
+        return;
+      }
+      if (!current) {
+        if (event.key === "j" || event.key === "k") setFocusedId(flatRoots[0]?.id ?? null);
+        return;
+      }
+      if (event.key === "e" || event.key === "Enter") {
+        event.preventDefault();
+        onOpen(current);
+        return;
+      }
+      if (event.key === "Backspace" || event.key === "Delete") {
+        if (!onDelete) return;
+        event.preventDefault();
+        onDelete(current);
+        return;
+      }
+      if (event.key === "]" || event.key === "[") {
+        event.preventDefault();
+        const at = STATUS_CYCLE.indexOf((current.status ?? "todo") as ItemStatus);
+        const next =
+          event.key === "]"
+            ? STATUS_CYCLE[(at + 1) % STATUS_CYCLE.length]
+            : STATUS_CYCLE[(at - 1 + STATUS_CYCLE.length) % STATUS_CYCLE.length];
+        if (next) onStatus(current, next);
+        return;
+      }
+      const priority = PRIORITY_KEYS[event.key];
+      if (priority && onPriority) {
+        event.preventDefault();
+        onPriority(current, priority);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [flatRoots, focusedId, onDelete, onOpen, onPriority, onStatus]);
 
   function toggleCollapsed(status: ItemStatus) {
     setCollapsed((current) => ({ ...current, [status]: !current[status] }));
@@ -194,13 +262,17 @@ export function TaskList({
                       item={item}
                       showProject={showProject}
                       selected={selected.includes(item.id)}
+                      focused={focusedId === item.id}
                       draggable={desktop}
                       onOpen={onOpen}
                       onSelect={onRowSelect}
                       onStatus={onStatus}
                       onPriority={onPriority}
                       onDelete={onDelete}
-                      onAnchor={() => setLastClicked(item.id)}
+                      onAnchor={() => {
+                        setLastClicked(item.id);
+                        setFocusedId(item.id);
+                      }}
                     />
                     {(nested.children.get(item.id) ?? []).map((child) => (
                       <div key={child.id} className="pl-7">
@@ -208,13 +280,17 @@ export function TaskList({
                           item={child}
                           showProject={showProject}
                           selected={selected.includes(child.id)}
+                          focused={focusedId === child.id}
                           draggable={false}
                           onOpen={onOpen}
                           onSelect={onRowSelect}
                           onStatus={onStatus}
                           onPriority={onPriority}
                           onDelete={onDelete}
-                          onAnchor={() => setLastClicked(child.id)}
+                          onAnchor={() => {
+                            setLastClicked(child.id);
+                            setFocusedId(child.id);
+                          }}
                         />
                       </div>
                     ))}
@@ -253,6 +329,7 @@ function TaskListRow({
   item,
   showProject,
   selected,
+  focused,
   draggable,
   onOpen,
   onSelect,
@@ -264,6 +341,7 @@ function TaskListRow({
   item: Item;
   showProject: boolean;
   selected: boolean;
+  focused: boolean;
   draggable: boolean;
   onOpen: (item: Item) => void;
   onSelect: (item: Item, event: { shiftKey: boolean }) => void;
@@ -294,7 +372,7 @@ function TaskListRow({
       ref={draggable ? drag.setNodeRef : undefined}
       style={style}
       className={`group flex min-h-9 cursor-grab items-center gap-1.5 rounded-md px-1.5 active:cursor-grabbing ${
-        selected ? "bg-interactive ring-1 ring-border-strong" : "hover:bg-interactive"
+        selected || focused ? "bg-interactive ring-1 ring-border-strong" : "hover:bg-interactive"
       }`}
       {...(draggable ? drag.listeners : {})}
       {...(draggable ? drag.attributes : {})}
@@ -357,7 +435,7 @@ function TaskListRow({
                 type="button"
                 aria-label={t("tasks.actions")}
                 className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-[13px] text-fg-muted hover:bg-canvas hover:text-fg ${
-                  menu ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  menu ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                 }`}
                 onClick={() => setMenu((open) => !open)}
               >

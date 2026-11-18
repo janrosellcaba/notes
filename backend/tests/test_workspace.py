@@ -11,6 +11,23 @@ from httpx import AsyncClient
 from app.services.items import purge_expired_trash
 
 
+async def test_empty_trash_purges_all_trashed_items(authed: tuple[object, AsyncClient]) -> None:
+    _app, http = authed
+    first = await http.post("/api/items", json={"type": "note", "title": "Trash one"})
+    second = await http.post("/api/items", json={"type": "note", "title": "Trash two"})
+    assert first.status_code == 201 and second.status_code == 201
+    first_id = first.json()["id"]
+    second_id = second.json()["id"]
+    assert (await http.delete(f"/api/items/{first_id}")).status_code == 204
+    assert (await http.delete(f"/api/items/{second_id}")).status_code == 204
+    assert len((await http.get("/api/items/trash")).json()["items"]) >= 2
+    emptied = await http.delete("/api/items/trash")
+    assert emptied.status_code == 204
+    assert (await http.get("/api/items/trash")).json()["items"] == []
+    assert (await http.get(f"/api/items/{first_id}")).status_code == 404
+    assert (await http.get(f"/api/items/{second_id}")).status_code == 404
+
+
 async def test_trash_hides_restores_and_expires(authed: tuple[object, AsyncClient]) -> None:
     app, http = authed
     created = await http.post("/api/items", json={"type": "note", "title": "Keep me", "body_md": "trash-token-opal"})

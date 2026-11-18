@@ -17,6 +17,17 @@ import { softDeleteItems } from "../lib/taskActions";
 import { useUi } from "../stores/ui";
 import type { Item, ItemPatch } from "../types/api";
 
+function bulletTitles(markdown: string): string[] {
+  const titles: string[] = [];
+  for (const line of markdown.split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:[-*+]|\d+\.)\s+(.+?)\s*$/);
+    if (!match?.[1]) continue;
+    const title = match[1].replace(/\*\*|__/g, "").trim();
+    if (title) titles.push(title.slice(0, 500));
+  }
+  return titles;
+}
+
 type Draft = { title: string; body: string; projectId: string | null; transcript: string };
 
 function draftFrom(item: Item): Draft {
@@ -140,6 +151,30 @@ export default function ItemPage() {
     }
   }
 
+  async function createTasksFromBullets() {
+    await flushRef.current();
+    if (!item.data || !draft) return;
+    const titles = bulletTitles(draft.body);
+    if (titles.length === 0) {
+      pushToast(t("editor.noBullets"));
+      return;
+    }
+    try {
+      const created = await Promise.all(
+        titles.map((title) =>
+          extractTask(item.data!.id, {
+            title,
+            selection: title,
+          }),
+        ),
+      );
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+      pushToast(t("editor.tasksFromBullets", { count: String(created.length) }));
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
+    }
+  }
+
   async function remove() {
     if (!item.data) return;
     const current = item.data;
@@ -192,7 +227,14 @@ export default function ItemPage() {
         className="border-b border-border-subtle bg-transparent px-1 py-2 text-[20px] outline-none"
         onChange={(event) => patchDraft({ title: event.target.value })}
       />
-      {meeting ? <p className="px-1 pt-3 text-[13px] text-fg-muted">{t("editor.takeaways")}</p> : null}
+      {meeting ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3">
+          <p className="text-[13px] text-fg-muted">{t("editor.takeaways")}</p>
+          <Button variant="consult" onClick={() => void createTasksFromBullets()}>
+            {t("editor.bulletsToTasks")}
+          </Button>
+        </div>
+      ) : null}
       <NoteSurface
         value={draft.body}
         onChange={(body) => patchDraft({ body })}

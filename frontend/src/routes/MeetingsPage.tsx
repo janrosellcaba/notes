@@ -65,7 +65,15 @@ export function MeetingsPage() {
       </ListFilter>
       {meetings.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}
       {meetings.isError ? <p className="text-fg-secondary">{t("meetings.loadError")}</p> : null}
-      {!meetings.isPending && rows.length === 0 ? <EmptyState>{t("meetings.empty")}</EmptyState> : null}
+      {!meetings.isPending && rows.length === 0 ? (
+        <EmptyState
+          action={
+            <NewButton onClick={() => openCapture({ type: "meeting", projectId: null })}>{t("home.meeting")}</NewButton>
+          }
+        >
+          {t("meetings.empty")}
+        </EmptyState>
+      ) : null}
       <ul>
         {rows.map((item) => (
           <li key={item.id}>

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Board } from "../components/kanban/Board";
 import { TaskEditor } from "../components/items/TaskEditor";
 import { nestTasks, TaskList } from "../components/items/TaskList";
+import { EmptyState } from "../components/ui/EmptyState";
 import { ListFilter, matchesQuery } from "../components/ui/ListFilter";
 import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -30,6 +31,7 @@ export function TasksPage() {
   const queryClient = useQueryClient();
   const queryView = params.get("view");
   const view = queryView === "board" || queryView === "list" ? queryView : tasksView;
+  const dueFilter = params.get("due") === "today" ? "today" : "all";
   const today = todayISO();
   const [editing, setEditing] = useState<Item | null>(null);
   const [query, setQuery] = useState("");
@@ -49,6 +51,7 @@ export function TasksPage() {
   const tasks = useQuery({ queryKey: queryKeys.items(filters), queryFn: () => listItems(filters) });
   const filteredItems = useMemo(() => {
     return (tasks.data?.items ?? [])
+      .filter((item) => (dueFilter === "today" ? item.due_on === today : true))
       .filter((item) => (projectFilter === "all" ? true : item.project?.id === projectFilter))
       .filter((item) =>
         priorityFilter === "all" ? true : (item.priority ?? "none") === priorityFilter,
@@ -56,7 +59,7 @@ export function TasksPage() {
       .filter((item) =>
         matchesQuery(`${item.title} ${item.project?.name ?? ""} ${item.assignee ?? ""}`, query),
       );
-  }, [tasks.data?.items, projectFilter, priorityFilter, query]);
+  }, [tasks.data?.items, projectFilter, priorityFilter, query, dueFilter, today]);
   const nested = nestTasks(filteredItems);
 
   function setView(next: "list" | "board") {
@@ -158,7 +161,11 @@ export function TasksPage() {
           <option value="none">{t("task.none")}</option>
         </select>
       </ListFilter>
-      {view === "board" ? (
+      {!tasks.isPending && filteredItems.length === 0 ? (
+        <EmptyState action={<NewButton onClick={() => openCapture({ type: "task" })}>{t("tasks.new")}</NewButton>}>
+          {dueFilter === "today" ? t("tasks.emptyToday") : t("tasks.empty")}
+        </EmptyState>
+      ) : view === "board" ? (
         <Board items={nested.roots} projectId={null} showProject onOpen={setEditing} />
       ) : (
         <TaskList

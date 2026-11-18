@@ -18,6 +18,7 @@ import { GoPage } from "../routes/GoPage";
 import { MeetingsPage } from "../routes/MeetingsPage";
 import { NotesPage } from "../routes/NotesPage";
 import { TasksPage } from "../routes/TasksPage";
+import { TrashPage } from "../routes/TrashPage";
 
 function RequireAuth() {
   const location = useLocation();
@@ -53,7 +54,7 @@ export function AppRouter() {
             }
           />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="trash" element={<Navigate to="/" replace />} />
+          <Route path="trash" element={<TrashPage />} />
           <Route path="go/:title" element={<GoPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

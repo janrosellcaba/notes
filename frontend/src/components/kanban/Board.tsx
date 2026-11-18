@@ -54,14 +54,23 @@ export function Board({
   const contextId = useUi((state) => state.contextId);
   const order = useUi((state) => state.boardOrder);
   const { t } = useI18n();
+  const [showClosed, setShowClosed] = useState(false);
   const [openEmpty, setOpenEmpty] = useState<string[]>([]);
   const [closed, setClosed] = useState<string[]>(() => [...COLLAPSED_BY_DEFAULT]);
   const [selected, setSelected] = useState<string[]>([]);
   const [lastClicked, setLastClicked] = useState<string | null>(null);
+  const visibleOrder = useMemo(
+    () => (showClosed ? order : order.filter((status) => status !== "done" && status !== "cancelled")),
+    [order, showClosed],
+  );
+  const closedCount = useMemo(
+    () => columnItems(items, "done").length + columnItems(items, "cancelled").length,
+    [items],
+  );
 
   const flatItems = useMemo(
-    () => order.flatMap((status) => columnItems(items, status)),
-    [items, order],
+    () => visibleOrder.flatMap((status) => columnItems(items, status)),
+    [items, visibleOrder],
   );
 
   useEffect(() => {
@@ -222,36 +231,42 @@ export function Board({
     setSelected([]);
   }
 
-  const toolbar =
-    selected.length > 0 ? (
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-elevated px-3 py-2">
-        <span className="text-[13px] text-fg-secondary">{t("tasks.selected", { count: String(selected.length) })}</span>
-        <Button type="button" variant="consult" onClick={() => bulkStatus("in_progress")}>
-          {t("tasks.bulkInProgress")}
-        </Button>
-        <Button type="button" variant="consult" onClick={() => bulkStatus("todo")}>
-          {t("tasks.bulkTodo")}
-        </Button>
-        <Button type="button" variant="consult" onClick={() => bulkStatus("done")}>
-          {t("tasks.bulkDone")}
-        </Button>
-        <Button type="button" variant="consult" onClick={() => setSelected([])}>
-          {t("tasks.clearSelection")}
-        </Button>
-      </div>
-    ) : null;
+  const toolbar = (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <Button type="button" variant="consult" onClick={() => setShowClosed((value) => !value)}>
+        {showClosed ? t("board.hideClosed") : t("board.showClosed", { count: String(closedCount) })}
+      </Button>
+      {selected.length > 0 ? (
+        <>
+          <span className="text-[13px] text-fg-secondary">{t("tasks.selected", { count: String(selected.length) })}</span>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("in_progress")}>
+            {t("tasks.bulkInProgress")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("todo")}>
+            {t("tasks.bulkTodo")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => bulkStatus("done")}>
+            {t("tasks.bulkDone")}
+          </Button>
+          <Button type="button" variant="consult" onClick={() => setSelected([])}>
+            {t("tasks.clearSelection")}
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
 
   if (!desktop) {
     return (
       <div>
         {toolbar}
         <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
-          {order.map((status) => {
+          {visibleOrder.map((status) => {
             const rows = columnItems(items, status);
             return (
               <PlainColumn
                 key={status}
-                label={t(`board.${status}` as MessageKey)}
+                label={`${t(`board.${status}` as MessageKey)} · ${rows.length}`}
                 items={rows}
                 showProject={showProject}
                 selectedIds={selected}
@@ -273,6 +288,7 @@ export function Board({
   return (
     <DesktopBoard
       items={items}
+      order={visibleOrder}
       showProject={showProject}
       selected={selected}
       toolbar={toolbar}
@@ -290,6 +306,7 @@ export function Board({
 
 function DesktopBoard({
   items,
+  order,
   showProject,
   selected,
   toolbar,
@@ -303,6 +320,7 @@ function DesktopBoard({
   onAnchor,
 }: {
   items: Item[];
+  order: ColumnStatus[];
   showProject: boolean;
   selected: string[];
   toolbar: ReactNode;
@@ -315,7 +333,6 @@ function DesktopBoard({
   onSelect: (item: Item, event: { shiftKey: boolean }) => void;
   onAnchor: (item: Item) => void;
 }) {
-  const order = useUi((state) => state.boardOrder);
   const { t } = useI18n();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -332,7 +349,7 @@ function DesktopBoard({
               <DropColumn
                 key={status}
                 status={status}
-                label={t(`board.${status}` as MessageKey)}
+                label={`${t(`board.${status}` as MessageKey)} · ${rows.length}`}
                 items={rows}
                 showProject={showProject}
                 selectedIds={selected}
