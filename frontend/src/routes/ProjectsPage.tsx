@@ -236,7 +236,7 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <PageHeader
         title={t("projects.title")}
         actions={

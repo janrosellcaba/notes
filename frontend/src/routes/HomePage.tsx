@@ -47,7 +47,7 @@ export function HomePage() {
   const tasks = home.data?.today_tasks ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
       <PageHeader title={t("nav.home")}>
         <Button
           variant="consult"

@@ -40,7 +40,7 @@ export function NotesPage() {
   }, [notes.data?.items, projectFilter, query]);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <PageHeader
         title={t("notes.title")}
         actions={

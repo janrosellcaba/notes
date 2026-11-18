@@ -11,7 +11,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Button } from "../ui/Button";
 import { cn } from "../../lib/cn";
 import { useI18n, type MessageKey } from "../../lib/i18n";
 import { DEFAULT_NAV_ORDER, type NavId } from "../../lib/navOrder";
@@ -20,7 +19,7 @@ import { useUi } from "../../stores/ui";
 import { ContextMark } from "./ContextMark";
 
 const DESTINATIONS: Record<
-  NavId,
+  Exclude<NavId, "trash">,
   { to: string; label: MessageKey; icon: typeof Home; end: boolean }
 > = {
   home: { to: "/", label: "nav.home", icon: Home, end: true },
@@ -29,8 +28,10 @@ const DESTINATIONS: Record<
   meetings: { to: "/meetings", label: "nav.meetings", icon: FileText, end: false },
   calendar: { to: "/calendar", label: "nav.calendar", icon: CalendarDays, end: false },
   projects: { to: "/projects", label: "nav.projects", icon: Folder, end: false },
-  trash: { to: "/trash", label: "nav.trash", icon: Trash2, end: false },
 };
+
+const footerBtn =
+  "inline-flex min-h-9 items-center gap-2 rounded-[8px] px-2 text-[13px] text-fg-secondary hover:bg-interactive hover:text-fg";
 
 export function Sidebar() {
   const collapsed = useUi((state) => state.sidebarCollapsed);
@@ -95,10 +96,37 @@ export function Sidebar() {
           </div>
         ) : null}
       </nav>
-      <Button variant="consult" className="m-2" onClick={() => setCollapsed(!collapsed)}>
-        {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        {collapsed ? null : <span>{t("nav.collapse")}</span>}
-      </Button>
+      <div
+        className={cn(
+          "flex items-center gap-1 border-t border-border-subtle p-2",
+          collapsed ? "flex-col" : "justify-between",
+        )}
+      >
+        <NavLink
+          to="/trash"
+          title={t("nav.trash")}
+          className={({ isActive }) =>
+            cn(
+              footerBtn,
+              collapsed && "w-full justify-center px-0",
+              isActive && "bg-interactive text-fg",
+            )
+          }
+        >
+          <Trash2 size={16} />
+          {collapsed ? null : <span className="truncate">{t("nav.trash")}</span>}
+        </NavLink>
+        <button
+          type="button"
+          title={t("nav.collapse")}
+          aria-label={t("nav.collapse")}
+          className={cn(footerBtn, collapsed && "w-full justify-center px-0", !collapsed && "ml-auto")}
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed ? null : <span className="truncate">{t("nav.collapse")}</span>}
+        </button>
+      </div>
     </aside>
   );
 }

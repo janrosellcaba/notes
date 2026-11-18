@@ -219,7 +219,7 @@ export function SettingsPage() {
   const rows = (contexts.data?.contexts ?? []).slice().sort((left, right) => left.sort_order - right.sort_order);
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-6xl">
       <PageHeader title={t("settings.title")} className="mb-6">
         <p className="max-w-xl text-[13px] text-fg-muted">{t("settings.lead")}</p>
       </PageHeader>

@@ -1,6 +1,6 @@
 export type NavId = "home" | "tasks" | "notes" | "meetings" | "calendar" | "projects" | "trash";
 
-/** Desktop sidebar order. */
+/** Desktop sidebar primary destinations (Trash lives in the footer). */
 export const DEFAULT_NAV_ORDER: readonly NavId[] = [
   "home",
   "tasks",
@@ -8,7 +8,6 @@ export const DEFAULT_NAV_ORDER: readonly NavId[] = [
   "meetings",
   "calendar",
   "projects",
-  "trash",
 ] as const;
 
 /** Primary mobile tabs (More holds the rest). */

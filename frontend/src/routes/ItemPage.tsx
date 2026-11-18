@@ -198,7 +198,7 @@ export default function ItemPage() {
   const meeting = current.type === "meeting";
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 pb-3">
         <Button variant="consult" onClick={() => void navigate(-1)}>
           {t("editor.back")}

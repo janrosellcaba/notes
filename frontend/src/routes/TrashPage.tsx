@@ -49,7 +49,7 @@ export function TrashPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <PageHeader
         title={t("trash.title")}
         actions={

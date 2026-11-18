@@ -16,7 +16,7 @@ export function CalendarPage() {
   const [projectFilter, setProjectFilter] = useState("all");
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <PageHeader title={t("calendar.title")}>
         <p className="text-[13px] text-fg-muted">{t("calendar.detail")}</p>
       </PageHeader>
