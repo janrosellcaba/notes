@@ -1,6 +1,8 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { EmptyState } from "../components/ui/EmptyState";
+import { ListFilter, matchesQuery } from "../components/ui/ListFilter";
 import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
 import { RowLink } from "../components/ui/RowLink";
@@ -8,12 +10,16 @@ import { listItems } from "../lib/api";
 import { relativeTime } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
+import { useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
 
 export function MeetingsPage() {
   const contextId = useUi((state) => state.contextId);
   const openCapture = useUi((state) => state.openCapture);
   const { t } = useI18n();
+  const [query, setQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const projects = useProjectList(contextId);
   const filters = {
     type: "meeting" as const,
     limit: 200,
@@ -23,7 +29,13 @@ export function MeetingsPage() {
     queryKey: queryKeys.items(filters),
     queryFn: () => listItems(filters),
   });
-  const rows = meetings.data?.items ?? [];
+  const rows = useMemo(() => {
+    return (meetings.data?.items ?? [])
+      .filter((item) => (projectFilter === "all" ? true : item.project?.id === projectFilter))
+      .filter((item) =>
+        matchesQuery(`${item.title} ${item.project?.name ?? ""} ${item.body_md ?? ""}`, query),
+      );
+  }, [meetings.data?.items, projectFilter, query]);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
@@ -35,6 +47,21 @@ export function MeetingsPage() {
           </NewButton>
         }
       />
+      <ListFilter value={query} onChange={setQuery} placeholder={t("filter.meetings")}>
+        <select
+          aria-label={t("filter.project")}
+          value={projectFilter}
+          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          onChange={(event) => setProjectFilter(event.target.value)}
+        >
+          <option value="all">{t("filter.anyProject")}</option>
+          {(projects.data?.projects ?? []).map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </ListFilter>
       {meetings.isPending ? <p className="font-mono text-[13px] text-fg-muted">{t("common.loading")}</p> : null}
       {meetings.isError ? <p className="text-fg-secondary">{t("meetings.loadError")}</p> : null}
       {!meetings.isPending && rows.length === 0 ? <EmptyState>{t("meetings.empty")}</EmptyState> : null}

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "../components/ui/PageHeader";
 import { NewButton } from "../components/ui/NewButton";
 import { Button } from "../components/ui/Button";
+import { ListFilter, matchesQuery } from "../components/ui/ListFilter";
 import { Popover } from "../components/ui/Popover";
 import { Modal } from "../components/ui/Modal";
 import { TextField } from "../components/ui/TextField";
@@ -210,12 +211,19 @@ export function ProjectsPage() {
   const queryClient = useQueryClient();
   const contexts = useContexts();
   const [scope, setScope] = useState<Scope>("active");
+  const [query, setQuery] = useState("");
   const projects = useProjectList(contextId, { includeArchived: scope === "closed" });
   const { t } = useI18n();
   const groups = (contexts.data?.contexts ?? [])
     .filter((context) => contextId === "all" || context.id === contextId)
     .sort((left, right) => left.sort_order - right.sort_order);
-  const rows = projects.data?.projects ?? [];
+  const rows = useMemo(
+    () =>
+      (projects.data?.projects ?? []).filter((project) =>
+        matchesQuery(`${project.name} ${project.context.name}`, query),
+      ),
+    [projects.data?.projects, query],
+  );
   const active = rows.filter((project) => project.status === "active");
   const closed = rows
     .filter((project) => project.status === "done" || project.status === "cancelled")
@@ -247,6 +255,7 @@ export function ProjectsPage() {
           </>
         }
       />
+      <ListFilter value={query} onChange={setQuery} placeholder={t("filter.projects")} />
       {scope === "closed" ? (
         closed.length === 0 ? (
           <p className="text-fg-muted">{t("projects.closedEmpty")}</p>

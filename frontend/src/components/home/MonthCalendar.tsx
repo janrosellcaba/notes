@@ -22,7 +22,7 @@ function monthDays(year: number, month: number): Date[] {
   return Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
 }
 
-export function MonthCalendar({ projectId }: { projectId?: string }) {
+export function MonthCalendar({ projectId, titleQuery = "" }: { projectId?: string; titleQuery?: string }) {
   const { locale, t } = useI18n();
   const contextId = useUi((state) => state.contextId);
   const [cursor, setCursor] = useState(() => new Date());
@@ -46,8 +46,12 @@ export function MonthCalendar({ projectId }: { projectId?: string }) {
   });
   const byDay = useMemo(() => {
     const map = new Map<string, Array<{ id: string; title: string }>>();
+    const q = titleQuery.trim().toLowerCase();
+    function matches(title: string) {
+      return !q || title.toLowerCase().includes(q);
+    }
     function add(day: string | null | undefined, id: string, title: string) {
-      if (!day) return;
+      if (!day || !matches(title)) return;
       const list = map.get(day) ?? [];
       list.push({ id, title });
       map.set(day, list);
@@ -55,7 +59,7 @@ export function MonthCalendar({ projectId }: { projectId?: string }) {
     for (const item of tasks.data?.items ?? []) add(item.due_on, item.id, item.title);
     for (const item of meetings.data?.items ?? []) add(iso(new Date(item.created_at)), item.id, item.title);
     return map;
-  }, [tasks.data, meetings.data]);
+  }, [tasks.data, meetings.data, titleQuery]);
   const days = monthDays(year, month);
   const today = iso(new Date());
   const label = new Date(year, month, 1).toLocaleDateString(language, { month: "long", year: "numeric" });

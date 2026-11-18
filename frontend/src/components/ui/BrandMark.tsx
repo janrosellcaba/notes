@@ -1,5 +1,3 @@
-import { useId } from "react";
-
 import { cn } from "../../lib/cn";
 import { LOGO_SRC, type LogoStyle } from "../../lib/logo";
 import { useUi } from "../../stores/ui";
@@ -23,7 +21,6 @@ function ImageMark({
   size: number;
   className?: string;
   tone: "dark" | "light";
-  /** cover = edge-to-edge (3D icon tile); contain = padded art on a light tile */
   fit?: "cover" | "contain";
 }) {
   return (
@@ -54,54 +51,6 @@ function ImageMark({
   );
 }
 
-/** Same mark as flat, with clay shading so it reads as a 3D sibling. */
-function ThreeDMark({ size, className }: { size: number; className?: string }) {
-  const raw = useId().replace(/:/g, "");
-  const clay = `clay-${raw}`;
-  const shine = `shine-${raw}`;
-  const depth = `depth-${raw}`;
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 32 32"
-      width={size}
-      height={size}
-      aria-hidden="true"
-      className={cn("shrink-0", className)}
-    >
-      <defs>
-        <linearGradient id={clay} x1="6" y1="4" x2="26" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="42%" stopColor="#f4f4f5" />
-          <stop offset="72%" stopColor="#d4d4d8" />
-          <stop offset="100%" stopColor="#a1a1aa" />
-        </linearGradient>
-        <linearGradient id={shine} x1="8" y1="5" x2="22" y2="20" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
-          <stop offset="55%" stopColor="#ffffff" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-        <filter id={depth} x="-15%" y="-15%" width="130%" height="130%" colorInterpolationFilters="sRGB">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="0.45" result="blur" />
-          <feOffset in="blur" dx="0.15" dy="0.55" result="off" />
-          <feFlood floodColor="#000000" floodOpacity="0.45" result="color" />
-          <feComposite in="color" in2="off" operator="in" result="shadow" />
-          <feMerge>
-            <feMergeNode in="shadow" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      <rect x="0.5" y="0.5" width="31" height="31" rx="7.2" fill="#000000" stroke="var(--logo-border)" />
-      <g filter={`url(#${depth})`}>
-        <path fill={`url(#${clay})`} d={BLOB} />
-        <path fill={`url(#${clay})`} d={PILL} />
-      </g>
-      <path fill={`url(#${shine})`} d={BLOB} />
-    </svg>
-  );
-}
-
 export function BrandMark({
   size = 28,
   variant = "tile",
@@ -110,17 +59,16 @@ export function BrandMark({
 }: {
   size?: number;
   variant?: Variant;
-  /** Override the settings preference (e.g. settings previews). */
   style?: LogoStyle;
   className?: string;
 }) {
   const preferred = useUi((state) => state.logoStyle);
   const logo = style ?? preferred;
   if (logo === "threeD") {
-    return <ThreeDMark size={size} className={className} />;
+    // Real clay 3D render of the same mark — edge-to-edge black tile, no gray margin.
+    return <ImageMark src={LOGO_SRC.threeD} size={size} className={className} tone="dark" fit="cover" />;
   }
   if (logo === "doodle" || logo === "smile") {
-    // Doodle assets are dark/blue ink on white — keep a white tile so they read in dark mode too.
     return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" fit="contain" />;
   }
   return (

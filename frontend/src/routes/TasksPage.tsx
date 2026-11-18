@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Board } from "../components/kanban/Board";
 import { TaskEditor } from "../components/items/TaskEditor";
 import { nestTasks, TaskList } from "../components/items/TaskList";
+import { ListFilter, matchesQuery } from "../components/ui/ListFilter";
 import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
@@ -14,6 +15,7 @@ import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { applyTaskStatuses } from "../lib/taskActions";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
+import { useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
 import type { Item, ItemFilters, ItemPriority, ItemStatus } from "../types/api";
 
@@ -29,6 +31,10 @@ export function TasksPage() {
   const view = queryView === "board" || queryView === "list" ? queryView : tasksView;
   const today = todayISO();
   const [editing, setEditing] = useState<Item | null>(null);
+  const [query, setQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const projects = useProjectList(contextId);
   const filters = useMemo<ItemFilters>(() => {
     const next: ItemFilters = {
       type: "task",
@@ -40,7 +46,17 @@ export function TasksPage() {
     return next;
   }, [today, contextId]);
   const tasks = useQuery({ queryKey: queryKeys.items(filters), queryFn: () => listItems(filters) });
-  const nested = nestTasks(tasks.data?.items ?? []);
+  const filteredItems = useMemo(() => {
+    return (tasks.data?.items ?? [])
+      .filter((item) => (projectFilter === "all" ? true : item.project?.id === projectFilter))
+      .filter((item) =>
+        priorityFilter === "all" ? true : (item.priority ?? "none") === priorityFilter,
+      )
+      .filter((item) =>
+        matchesQuery(`${item.title} ${item.project?.name ?? ""} ${item.assignee ?? ""}`, query),
+      );
+  }, [tasks.data?.items, projectFilter, priorityFilter, query]);
+  const nested = nestTasks(filteredItems);
 
   function setView(next: "list" | "board") {
     const copy = new URLSearchParams(params);
@@ -105,11 +121,39 @@ export function TasksPage() {
           </>
         }
       />
+      <ListFilter value={query} onChange={setQuery} placeholder={t("filter.tasks")}>
+        <select
+          aria-label={t("filter.project")}
+          value={projectFilter}
+          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          onChange={(event) => setProjectFilter(event.target.value)}
+        >
+          <option value="all">{t("filter.anyProject")}</option>
+          {(projects.data?.projects ?? []).map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={t("filter.priority")}
+          value={priorityFilter}
+          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          onChange={(event) => setPriorityFilter(event.target.value)}
+        >
+          <option value="all">{t("filter.anyPriority")}</option>
+          <option value="urgent">{t("task.urgent")}</option>
+          <option value="high">{t("task.high")}</option>
+          <option value="medium">{t("task.medium")}</option>
+          <option value="low">{t("task.low")}</option>
+          <option value="none">{t("task.none")}</option>
+        </select>
+      </ListFilter>
       {view === "board" ? (
         <Board items={nested.roots} projectId={null} showProject onOpen={setEditing} />
       ) : (
         <TaskList
-          items={tasks.data?.items ?? []}
+          items={filteredItems}
           onOpen={setEditing}
           onStatus={(row, status) => void setStatus(row, status)}
           onBulkStatus={(rows, status) => void setBulkStatus(rows, status)}
