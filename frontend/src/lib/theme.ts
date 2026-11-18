@@ -1,4 +1,4 @@
-import { LOGO_SRC, readLogoStyle, type LogoStyle } from "./logo";
+import { logoSrc, readLogoStyle, type LogoStyle } from "./logo";
 
 export type Theme = "dark" | "light";
 
@@ -19,10 +19,7 @@ export function faviconFor(theme: Theme, logo: LogoStyle): { href: string; type:
       type: "image/svg+xml",
     };
   }
-  if (logo === "threeD" && theme === "light") {
-    return { href: "/brand/logo3-light.png", type: "image/png" };
-  }
-  const href = LOGO_SRC[logo];
+  const href = logoSrc(logo, theme);
   const type = href.endsWith(".svg")
     ? "image/svg+xml"
     : href.endsWith(".png")
@@ -36,7 +33,7 @@ export function applyFavicon(theme: Theme = readTheme(), logo: LogoStyle = readL
   if (!(icon instanceof HTMLLinkElement)) return;
   const next = faviconFor(theme, logo);
   // Force a reload when switching between same-type assets (e.g. jpg → jpg).
-  icon.href = `${next.href}${next.href.includes("?") ? "&" : "?"}v=${encodeURIComponent(`${logo}-6`)}`;
+  icon.href = `${next.href}${next.href.includes("?") ? "&" : "?"}v=${encodeURIComponent(`${logo}-7`)}`;
   icon.type = next.type;
 }
 

@@ -1,5 +1,5 @@
 import { cn } from "../../lib/cn";
-import { LOGO_SRC, type LogoStyle } from "../../lib/logo";
+import { logoSrc, type LogoStyle } from "../../lib/logo";
 import { useUi } from "../../stores/ui";
 
 type Variant = "tile" | "plain";
@@ -69,11 +69,11 @@ export function BrandMark({
   const theme = useUi((state) => state.theme);
   const logo = style ?? preferred;
   if (logo === "threeD") {
-    // Same clay photo; invert in light mode so the tile stays white clay → black clay.
+    // Dark asset is the clay photo; invert in light mode so the tile stays white clay → black clay.
     const light = theme === "light";
     return (
       <ImageMark
-        src={`${LOGO_SRC.threeD}?v=6`}
+        src={`${logoSrc("threeD", "dark")}?v=7`}
         size={size}
         className={className}
         tone={light ? "light" : "dark"}
@@ -83,7 +83,16 @@ export function BrandMark({
     );
   }
   if (logo === "doodle" || logo === "smile") {
-    return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" fit="contain" />;
+    const light = theme === "light";
+    return (
+      <ImageMark
+        src={`${logoSrc(logo, light ? "light" : "dark")}?v=7`}
+        size={size}
+        className={className}
+        tone={light ? "light" : "dark"}
+        fit="contain"
+      />
+    );
   }
   return (
     <svg

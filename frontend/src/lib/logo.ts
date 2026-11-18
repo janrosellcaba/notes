@@ -2,13 +2,17 @@ export type LogoStyle = "flat" | "doodle" | "smile" | "threeD";
 
 export const LOGO_KEY = "notes.logo";
 
-export const LOGO_OPTIONS: readonly LogoStyle[] = ["flat", "doodle", "smile", "threeD"];
+export const LOGO_OPTIONS: readonly LogoStyle[] = ["flat", "threeD", "doodle", "smile"];
 
-export const LOGO_SRC: Record<Exclude<LogoStyle, "flat">, string> = {
-  doodle: "/brand/logo1.jpg",
-  smile: "/brand/logo2.jpg",
-  threeD: "/brand/logo3.png",
+export const LOGO_SRC: Record<Exclude<LogoStyle, "flat">, { light: string; dark: string }> = {
+  doodle: { light: "/brand/logo1.jpg", dark: "/brand/logo1-dark.png" },
+  smile: { light: "/brand/logo2.jpg", dark: "/brand/logo2-dark.png" },
+  threeD: { light: "/brand/logo3-light.png", dark: "/brand/logo3.png" },
 };
+
+export function logoSrc(style: Exclude<LogoStyle, "flat">, theme: "dark" | "light"): string {
+  return LOGO_SRC[style][theme];
+}
 
 export function readLogoStyle(): LogoStyle {
   try {
