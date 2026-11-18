@@ -13,7 +13,7 @@ from starlette.responses import Response
 from app.db import Database
 from app.deps import CurrentUser, get_current_user
 from app.errors import AppError
-from app.schemas.auth import AuthUser, LoginRequest, PasswordChangeRequest, RegisterRequest
+from app.schemas.auth import AuthUser, AccountDeleteRequest, LoginRequest, PasswordChangeRequest, RegisterRequest
 from app.security import (
     LoginRateLimiter,
     clear_session_cookie,
@@ -24,6 +24,7 @@ from app.security import (
     set_session_cookie,
     verify_password,
 )
+from app.tenancy import user_seed_marker
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -148,6 +149,48 @@ async def change_password(
 @router.get("/me", response_model=AuthUser)
 async def me(user: CurrentUser = Depends(get_current_user)) -> AuthUser:
     return AuthUser(username=user.username)
+
+
+@router.delete("/account", status_code=204)
+async def delete_account(
+    body: AccountDeleteRequest,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    database: Database = request.app.state.db
+    row = await database.fetchone(
+        "SELECT password_hash FROM users WHERE id = ?",
+        (user.id,),
+    )
+    if row is None:
+        raise AppError(401, "Unauthenticated", "unauthenticated")
+    password_ok = await asyncio.to_thread(verify_password, str(row["password_hash"]), body.password)
+    if not password_ok:
+        raise AppError(400, "Password is wrong", "invalid_credentials")
+
+    await database.execute(
+        """
+        DELETE FROM idempotency_keys
+        WHERE item_id IN (SELECT id FROM items WHERE user_id = ?)
+        """,
+        (user.id,),
+    )
+    await database.execute(
+        """
+        DELETE FROM attachments
+        WHERE item_id IN (SELECT id FROM items WHERE user_id = ?)
+        """,
+        (user.id,),
+    )
+    await database.execute("DELETE FROM items WHERE user_id = ?", (user.id,))
+    await database.execute("DELETE FROM projects WHERE user_id = ?", (user.id,))
+    await database.execute("DELETE FROM contexts WHERE user_id = ?", (user.id,))
+    await database.execute("DELETE FROM app_meta WHERE key = ?", (user_seed_marker(user.id),))
+    await database.execute("DELETE FROM users WHERE id = ?", (user.id,))
+
+    response = Response(status_code=204)
+    clear_session_cookie(response, secure=request.app.state.settings.cookie_secure)
+    return response
 
 
 @router.post("/logout", status_code=204)

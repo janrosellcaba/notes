@@ -9,10 +9,11 @@ import { TranscriptDrawer } from "../components/editor/TranscriptDrawer";
 import { Attachments } from "../components/items/Attachments";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
-import { deleteItem, extractTask, getItem, patchItem, restoreItem } from "../lib/api";
+import { extractTask, getItem, patchItem, restoreItem } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useProjectList } from "../lib/queries";
+import { softDeleteItems } from "../lib/taskActions";
 import { useUi } from "../stores/ui";
 import type { Item, ItemPatch } from "../types/api";
 
@@ -141,12 +142,15 @@ export default function ItemPage() {
 
   async function remove() {
     if (!item.data) return;
+    const current = item.data;
     try {
       await flushRef.current();
-      await deleteItem(item.data.id);
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      await queryClient.invalidateQueries({ queryKey: ["home"] });
       void navigate(-1);
+      await softDeleteItems(queryClient, [current], {
+        pushToast,
+        message: t("tasks.deleted"),
+        undoLabel: t("common.undo"),
+      });
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
       setConfirmDelete(false);

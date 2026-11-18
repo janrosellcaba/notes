@@ -15,9 +15,12 @@ import { TextField } from "../components/ui/TextField";
 import { FIELD, FIELD_SELECT } from "../lib/field";
 import { LOGO_OPTIONS, type LogoStyle } from "../lib/logo";
 import { modKeyName } from "../lib/shortcuts";
+import { useNavigate } from "react-router";
+
 import {
   changePassword,
   createContext,
+  deleteAccount,
   deleteContext,
   downloadFile,
   getMe,
@@ -37,6 +40,8 @@ const SECTIONS = [
   { id: "shortcuts", label: "settings.shortcuts" },
   { id: "contexts", label: "settings.contexts" },
   { id: "data", label: "settings.data" },
+  { id: "integrations", label: "settings.integrations" },
+  { id: "danger", label: "settings.danger" },
 ] as const;
 
 const SHORTCUTS = [
@@ -50,6 +55,7 @@ const SHORTCUTS = [
 ] as const;
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const contexts = useContexts();
   const settings = useQuery({ queryKey: queryKeys.settings, queryFn: getSettings });
   const me = useQuery({ queryKey: queryKeys.me, queryFn: getMe });
@@ -72,6 +78,10 @@ export function SettingsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordPending, setPasswordPending] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletePending, setDeletePending] = useState(false);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
   const zone = timezone ?? settings.data?.timezone ?? "";
 
@@ -180,6 +190,23 @@ export function SettingsPage() {
       await downloadFile(path, fallback);
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("settings.downloadFailed"));
+    }
+  }
+
+  async function removeAccount() {
+    if (!deletePassword) {
+      setDeleteError(t("settings.deletePasswordRequired"));
+      return;
+    }
+    setDeleteError("");
+    setDeletePending(true);
+    try {
+      await deleteAccount(deletePassword);
+      queryClient.clear();
+      void navigate("/login", { replace: true });
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : t("settings.deleteFailed"));
+      setDeletePending(false);
     }
   }
 
@@ -454,6 +481,78 @@ export function SettingsPage() {
               ) : null}
             </div>
           </Panel>
+
+          <Panel id="integrations" title={t("settings.integrations")} description={t("settings.integrationsDetail")}>
+            <div className="flex flex-col gap-3">
+              <IntegrationRow
+                title={t("settings.googleCalendar")}
+                detail={t("settings.calendarSoonDetail")}
+                action={t("settings.comingSoon")}
+              />
+              <IntegrationRow
+                title={t("settings.microsoftCalendar")}
+                detail={t("settings.calendarSoonDetail")}
+                action={t("settings.comingSoon")}
+              />
+            </div>
+          </Panel>
+
+          <Panel id="danger" title={t("settings.danger")} description={t("settings.dangerDetail")}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[13px] text-fg-secondary">{t("settings.deleteAccount")}</p>
+                <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.deleteAccountDetail")}</p>
+              </div>
+              <Button variant="consult" tone="danger" className="shrink-0" onClick={() => setDeleteOpen(true)}>
+                {t("settings.deleteAccount")}
+              </Button>
+            </div>
+            {deleteOpen ? (
+              <Modal
+                title={t("settings.deleteAccount")}
+                onClose={() => {
+                  setDeleteOpen(false);
+                  setDeletePassword("");
+                  setDeleteError("");
+                }}
+                className="max-w-md"
+              >
+                <form
+                  className="flex flex-col gap-4 p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void removeAccount();
+                  }}
+                >
+                  <p className="text-[13px] text-fg-muted">{t("settings.deleteConfirmDetail")}</p>
+                  <TextField
+                    label={t("settings.current")}
+                    type="password"
+                    autoComplete="current-password"
+                    value={deletePassword}
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                  />
+                  {deleteError ? <p className="text-[13px] text-priority-urgent">{deleteError}</p> : null}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="consult"
+                      onClick={() => {
+                        setDeleteOpen(false);
+                        setDeletePassword("");
+                        setDeleteError("");
+                      }}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                    <Button type="submit" variant="go" tone="danger" disabled={deletePending || !deletePassword} aria-busy={deletePending}>
+                      {t("settings.deleteAccountForever")}
+                    </Button>
+                  </div>
+                </form>
+              </Modal>
+            ) : null}
+          </Panel>
         </div>
       </div>
     </div>
@@ -480,6 +579,20 @@ function ExportRow({ title, detail, action, onClick }: { title: string; detail: 
         <p className="mt-0.5 text-[13px] text-fg-muted">{detail}</p>
       </div>
       <Button variant="consult" className="shrink-0" onClick={onClick}>
+        {action}
+      </Button>
+    </div>
+  );
+}
+
+function IntegrationRow({ title, detail, action }: { title: string; detail: string; action: string }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[8px] border border-border-subtle bg-canvas px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-medium">{title}</p>
+        <p className="mt-0.5 text-[13px] text-fg-muted">{detail}</p>
+      </div>
+      <Button variant="consult" className="shrink-0" disabled aria-disabled="true">
         {action}
       </Button>
     </div>

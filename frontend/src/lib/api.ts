@@ -131,6 +131,10 @@ export function logout(): Promise<void> {
   return api<void>("/api/auth/logout", { method: "POST" });
 }
 
+export function deleteAccount(password: string): Promise<void> {
+  return api<void>("/api/auth/account", { method: "DELETE", body: { password } });
+}
+
 export function getMe(): Promise<AuthUser> {
   return api<AuthUser>("/api/auth/me");
 }

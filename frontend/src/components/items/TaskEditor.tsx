@@ -2,11 +2,12 @@ import { Paperclip, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createItem, deleteItem, listItems, patchItem, uploadAttachment } from "../../lib/api";
+import { createItem, listItems, patchItem, uploadAttachment } from "../../lib/api";
 import { FIELD, FIELD_SELECT, FIELD_TEXTAREA } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts, useProjectList } from "../../lib/queries";
+import { softDeleteItems } from "../../lib/taskActions";
 import { useUi } from "../../stores/ui";
 import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { Button } from "../ui/Button";
@@ -374,16 +375,12 @@ export function TaskEditor({
   async function remove() {
     if (deleting) return;
     setDeleting(true);
-    try {
-      await deleteItem(item.id);
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      await queryClient.invalidateQueries({ queryKey: ["home"] });
-      onClose();
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
-      setDeleting(false);
-      setConfirmDelete(false);
-    }
+    onClose();
+    await softDeleteItems(queryClient, [item], {
+      pushToast,
+      message: t("tasks.deleted"),
+      undoLabel: t("common.undo"),
+    });
   }
 
   return (

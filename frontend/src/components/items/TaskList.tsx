@@ -20,6 +20,7 @@ import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { columnId, statusFromDrop } from "../kanban/columns";
 import { Button } from "../ui/Button";
 import { ContextBadge } from "../ui/ContextBadge";
+import { Popover } from "../ui/Popover";
 import { PrioritySelect } from "../ui/PrioritySelect";
 import { StatusSelect } from "../ui/StatusSelect";
 
@@ -46,6 +47,7 @@ export function TaskList({
   onStatus,
   onPriority,
   onBulkStatus,
+  onDelete,
 }: {
   items: Item[];
   showProject?: boolean;
@@ -53,6 +55,7 @@ export function TaskList({
   onStatus: (item: Item, status: ItemStatus) => void;
   onPriority?: (item: Item, priority: ItemPriority) => void;
   onBulkStatus?: (items: Item[], status: ItemStatus) => void;
+  onDelete?: (item: Item) => void;
 }) {
   const { t } = useI18n();
   const desktop = useDesktop();
@@ -196,6 +199,7 @@ export function TaskList({
                       onSelect={onRowSelect}
                       onStatus={onStatus}
                       onPriority={onPriority}
+                      onDelete={onDelete}
                       onAnchor={() => setLastClicked(item.id)}
                     />
                     {(nested.children.get(item.id) ?? []).map((child) => (
@@ -209,6 +213,7 @@ export function TaskList({
                           onSelect={onRowSelect}
                           onStatus={onStatus}
                           onPriority={onPriority}
+                          onDelete={onDelete}
                           onAnchor={() => setLastClicked(child.id)}
                         />
                       </div>
@@ -253,6 +258,7 @@ function TaskListRow({
   onSelect,
   onStatus,
   onPriority,
+  onDelete,
   onAnchor,
 }: {
   item: Item;
@@ -263,9 +269,12 @@ function TaskListRow({
   onSelect: (item: Item, event: { shiftKey: boolean }) => void;
   onStatus: (item: Item, status: ItemStatus) => void;
   onPriority?: (item: Item, priority: ItemPriority) => void;
+  onDelete?: (item: Item) => void;
   onAnchor: () => void;
 }) {
   const { t } = useI18n();
+  const [menu, setMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const drag = useDraggable({ id: item.id, disabled: !draggable });
   const badge = item.project
     ? { color: item.project.context.color, icon: item.project.context.icon, name: item.project.name }
@@ -330,6 +339,65 @@ function TaskListRow({
         {item.due_on ? <span className="font-mono text-[12px] text-fg-muted">{item.due_on}</span> : null}
         {showProject && badge ? <ContextBadge color={badge.color} icon={badge.icon} name={badge.name} /> : null}
       </button>
+      {onDelete ? (
+        <div
+          className="shrink-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Popover
+            open={menu}
+            onClose={() => {
+              setMenu(false);
+              setConfirmDelete(false);
+            }}
+            className="right-0 left-auto"
+            trigger={
+              <button
+                type="button"
+                aria-label={t("tasks.actions")}
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-[13px] text-fg-muted hover:bg-canvas hover:text-fg ${
+                  menu ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                }`}
+                onClick={() => setMenu((open) => !open)}
+              >
+                ···
+              </button>
+            }
+          >
+            <div className="flex min-w-36 flex-col p-1">
+              <Button
+                variant="consult"
+                className="w-full justify-start"
+                onClick={() => {
+                  setMenu(false);
+                  onOpen(item);
+                }}
+              >
+                {t("tasks.open")}
+              </Button>
+              {confirmDelete ? (
+                <Button
+                  variant="consult"
+                  tone="danger"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setMenu(false);
+                    setConfirmDelete(false);
+                    onDelete(item);
+                  }}
+                >
+                  {t("inbox.deleteConfirm")}
+                </Button>
+              ) : (
+                <Button variant="consult" className="w-full justify-start" onClick={() => setConfirmDelete(true)}>
+                  {t("inbox.delete")}
+                </Button>
+              )}
+            </div>
+          </Popover>
+        </div>
+      ) : null}
     </div>
   );
 }

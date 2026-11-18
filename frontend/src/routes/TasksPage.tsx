@@ -13,7 +13,7 @@ import { todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { FIELD_SELECT } from "../lib/field";
-import { applyTaskStatuses } from "../lib/taskActions";
+import { applyTaskStatuses, softDeleteItems } from "../lib/taskActions";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useProjectList } from "../lib/queries";
@@ -103,6 +103,14 @@ export function TasksPage() {
     }
   }
 
+  async function removeTask(item: Item) {
+    await softDeleteItems(queryClient, [item], {
+      pushToast,
+      message: t("tasks.deleted"),
+      undoLabel: t("common.undo"),
+    });
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <PageHeader
@@ -159,6 +167,7 @@ export function TasksPage() {
           onStatus={(row, status) => void setStatus(row, status)}
           onBulkStatus={(rows, status) => void setBulkStatus(rows, status)}
           onPriority={(row, priority) => void setPriority(row, priority)}
+          onDelete={(row) => void removeTask(row)}
         />
       )}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}

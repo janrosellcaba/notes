@@ -21,7 +21,7 @@ import { relativeTime, todayISO } from "../lib/dates";
 import { FIELD } from "../lib/field";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
-import { applyTaskStatuses } from "../lib/taskActions";
+import { applyTaskStatuses, softDeleteItems } from "../lib/taskActions";
 import { useUi } from "../stores/ui";
 import type { Item, ItemFilters, ItemPriority, ItemStatus, ProjectStatus } from "../types/api";
 
@@ -187,6 +187,14 @@ export function ProjectDetailPage() {
       restoreLists(queryClient, lists);
       pushToast(error instanceof Error ? error.message : "Could not update the task");
     }
+  }
+
+  async function removeTask(item: Item) {
+    await softDeleteItems(queryClient, [item], {
+      pushToast,
+      message: t("tasks.deleted"),
+      undoLabel: t("common.undo"),
+    });
   }
 
   if (project.isPending) return <p className="text-fg-muted">{t("common.loading")}</p>;
@@ -358,6 +366,7 @@ export function ProjectDetailPage() {
               onStatus={(row, status) => void setStatus(row, status)}
               onBulkStatus={(rows, status) => void setBulkStatus(rows, status)}
               onPriority={(row, priority) => void setPriority(row, priority)}
+              onDelete={(row) => void removeTask(row)}
             />
           )}
         </section>

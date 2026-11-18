@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { patchItem } from "./api";
+import { deleteItem, patchItem, restoreItem } from "./api";
 import { mapItem, restoreLists, snapshotLists } from "./cache";
 import type { Item, ItemStatus } from "../types/api";
 
@@ -58,5 +58,44 @@ export async function applyTaskStatuses(
   } catch (error) {
     restoreLists(queryClient, lists);
     options.pushToast(error instanceof Error ? error.message : "Could not update the task");
+  }
+}
+
+/** Soft-delete items with an Undo toast that restores them. */
+export async function softDeleteItems(
+  queryClient: QueryClient,
+  items: Item[],
+  options: {
+    pushToast: ToastFn;
+    message: string;
+    undoLabel: string;
+  },
+): Promise<void> {
+  if (items.length === 0) return;
+  const lists = snapshotLists(queryClient);
+  for (const item of items) {
+    mapItem(queryClient, item.id, () => null);
+  }
+  try {
+    await Promise.all(items.map((item) => deleteItem(item.id)));
+    await queryClient.invalidateQueries({ queryKey: ["items"] });
+    await queryClient.invalidateQueries({ queryKey: ["home"] });
+    options.pushToast(options.message, undefined, {
+      label: options.undoLabel,
+      run: () => {
+        void (async () => {
+          try {
+            await Promise.all(items.map((item) => restoreItem(item.id)));
+            await queryClient.invalidateQueries({ queryKey: ["items"] });
+            await queryClient.invalidateQueries({ queryKey: ["home"] });
+          } catch (error) {
+            options.pushToast(error instanceof Error ? error.message : "Could not restore the task");
+          }
+        })();
+      },
+    });
+  } catch (error) {
+    restoreLists(queryClient, lists);
+    options.pushToast(error instanceof Error ? error.message : "Could not delete the task");
   }
 }

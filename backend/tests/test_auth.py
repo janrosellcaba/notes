@@ -267,6 +267,35 @@ async def test_register_is_closed_when_the_code_is_unset(
     assert response.json()["code"] == "invalid_code"
 
 
+async def test_delete_account_requires_password_and_clears_the_session(
+    client: tuple[object, AsyncClient],
+) -> None:
+    _app, http = client
+    created = await http.post(
+        "/api/auth/register",
+        json={"username": "to-delete", "password": "long-enough", "code": "01234"},
+    )
+    assert created.status_code == 201
+    wrong = await http.request(
+        "DELETE",
+        "/api/auth/account",
+        json={"password": "wrong-password"},
+    )
+    assert wrong.status_code == 400
+    assert wrong.json()["code"] == "invalid_credentials"
+    assert (await http.get("/api/auth/me")).status_code == 200
+
+    deleted = await http.request(
+        "DELETE",
+        "/api/auth/account",
+        json={"password": "long-enough"},
+    )
+    assert deleted.status_code == 204
+    assert cookie_attributes(deleted)["max-age"] == "0"
+    assert (await http.get("/api/auth/me")).status_code == 401
+    assert (await login(http, username="to-delete", password="long-enough")).status_code == 401
+
+
 async def test_change_password_replaces_the_session(client: tuple[object, AsyncClient]) -> None:
     _app, http = client
     assert (await login(http)).status_code == 200
