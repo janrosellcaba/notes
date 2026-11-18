@@ -3,6 +3,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/cn";
+import { FIELD } from "../../lib/field";
 import { IconButton } from "./IconButton";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & { label: string };
@@ -18,11 +19,7 @@ export function TextField({ label, id, className, type, ...props }: Props) {
     <input
       id={fieldId}
       type={isPassword ? (visible ? "text" : "password") : type}
-      className={cn(
-        "min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg",
-        isPassword && "pr-11",
-        className,
-      )}
+      className={cn(FIELD, isPassword && "pr-9", className)}
       {...props}
     />
   );
@@ -45,10 +42,10 @@ export function TextField({ label, id, className, type, ...props }: Props) {
         {input}
         <IconButton
           label={visible ? t("common.hidePassword") : t("common.showPassword")}
-          className="absolute right-0.5 top-1/2 h-10 w-10 min-h-10 min-w-10 -translate-y-1/2 text-fg-muted"
+          className="absolute top-1/2 right-0.5 h-8 w-8 min-h-8 min-w-8 -translate-y-1/2 text-fg-muted"
           onClick={() => setVisible((value) => !value)}
         >
-          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          {visible ? <EyeOff size={16} /> : <Eye size={16} />}
         </IconButton>
       </div>
     </div>

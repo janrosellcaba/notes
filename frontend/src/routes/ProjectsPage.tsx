@@ -12,6 +12,7 @@ import { TextField } from "../components/ui/TextField";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { ContextMark } from "../components/shell/ContextMark";
 import { deleteProject, patchProject } from "../lib/api";
+import { FIELD } from "../lib/field";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useContexts, useProjectList } from "../lib/queries";
@@ -186,7 +187,7 @@ function ProjectRow({
               <input
                 type="date"
                 value={due}
-                className="min-h-9 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
+                className={FIELD}
                 onChange={(event) => setDue(event.target.value)}
               />
             </label>

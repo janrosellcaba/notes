@@ -18,6 +18,7 @@ import { TextField } from "../components/ui/TextField";
 import { deleteProject, getProject, listItems, patchItem, patchProject } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { relativeTime, todayISO } from "../lib/dates";
+import { FIELD } from "../lib/field";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { applyTaskStatuses } from "../lib/taskActions";
@@ -403,7 +404,7 @@ export function ProjectDetailPage() {
               <input
                 type="date"
                 value={due}
-                className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+                className={FIELD}
                 onChange={(event) => setDue(event.target.value)}
               />
             </label>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MonthCalendar } from "../components/home/MonthCalendar";
 import { ListFilter } from "../components/ui/ListFilter";
 import { PageHeader } from "../components/ui/PageHeader";
+import { FIELD_SELECT } from "../lib/field";
 import { useI18n } from "../lib/i18n";
 import { useProjectList } from "../lib/queries";
 import { useUi } from "../stores/ui";
@@ -23,7 +24,7 @@ export function CalendarPage() {
         <select
           aria-label={t("filter.project")}
           value={projectFilter}
-          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          className={`${FIELD_SELECT} w-auto`}
           onChange={(event) => setProjectFilter(event.target.value)}
         >
           <option value="all">{t("filter.anyProject")}</option>

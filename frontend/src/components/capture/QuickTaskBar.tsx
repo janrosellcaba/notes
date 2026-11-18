@@ -6,6 +6,7 @@ import { useI18n } from "../../lib/i18n";
 import { insertTodayTask, invalidateItemViews, mapItem, projectRefFromCache } from "../../lib/cache";
 import { cn } from "../../lib/cn";
 import { todayISO, tomorrowISO } from "../../lib/dates";
+import { FIELD } from "../../lib/field";
 import { useProjectList } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
 import type { Item, ItemPriority } from "../../types/api";
@@ -130,7 +131,7 @@ export function QuickTaskBar({
           value={title}
           aria-label={t("task.add")}
           placeholder={t("task.add")}
-          className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+          className={FIELD}
           onChange={(event) => setTitle(event.target.value)}
         />
         <div className="flex flex-wrap gap-2">

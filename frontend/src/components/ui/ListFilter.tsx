@@ -1,7 +1,9 @@
 import { Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { FIELD } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
+import { cn } from "../../lib/cn";
 
 export function ListFilter({
   value,
@@ -23,7 +25,7 @@ export function ListFilter({
           value={value}
           aria-label={placeholder ?? t("filter.search")}
           placeholder={placeholder ?? t("filter.search")}
-          className="min-h-9 w-full rounded-md border border-border bg-canvas py-1.5 pr-8 pl-8 text-[13px] outline-none focus:border-fg"
+          className={cn(FIELD, "pr-8 pl-8")}
           onChange={(event) => onChange(event.target.value)}
         />
         {value ? (

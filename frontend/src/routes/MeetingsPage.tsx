@@ -8,6 +8,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { RowLink } from "../components/ui/RowLink";
 import { listItems } from "../lib/api";
 import { relativeTime } from "../lib/dates";
+import { FIELD_SELECT } from "../lib/field";
 import { useI18n } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectList } from "../lib/queries";
@@ -51,7 +52,7 @@ export function MeetingsPage() {
         <select
           aria-label={t("filter.project")}
           value={projectFilter}
-          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          className={`${FIELD_SELECT} w-auto`}
           onChange={(event) => setProjectFilter(event.target.value)}
         >
           <option value="all">{t("filter.anyProject")}</option>

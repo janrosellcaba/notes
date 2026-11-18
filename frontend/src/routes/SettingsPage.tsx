@@ -12,6 +12,7 @@ import { Modal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { TextField } from "../components/ui/TextField";
+import { FIELD, FIELD_SELECT } from "../lib/field";
 import { LOGO_OPTIONS, type LogoStyle } from "../lib/logo";
 import { modKeyName } from "../lib/shortcuts";
 import {
@@ -47,9 +48,6 @@ const SHORTCUTS = [
   { keys: ["Enter"], label: "shortcut.save" },
   { keys: ["Shift", "click"], label: "shortcut.shiftSelect" },
 ] as const;
-
-const fieldClass =
-  "min-h-11 w-full rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg";
 
 export function SettingsPage() {
   const contexts = useContexts();
@@ -350,7 +348,7 @@ export function SettingsPage() {
               <select
                 id="timezone"
                 value={zone}
-                className={`${fieldClass} sm:max-w-sm`}
+                className={`${FIELD_SELECT} sm:max-w-sm`}
                 onChange={(event) => {
                   setTimezone(event.target.value);
                   void saveTimezone(event.target.value);
@@ -409,7 +407,7 @@ export function SettingsPage() {
                 value={newContext}
                 aria-label="New context name"
                 placeholder="New context"
-                className={`${fieldClass} min-w-0 flex-1`}
+                className={`${FIELD} min-w-0 flex-1`}
                 onChange={(event) => setNewContext(event.target.value)}
               />
               <Button type="submit" variant="add" className="shrink-0">
@@ -554,7 +552,7 @@ function ContextRow({
       <input
         value={nextName}
         aria-label={`${name} name`}
-        className={`${fieldClass} min-w-0 flex-1`}
+        className={`${FIELD} min-w-0 flex-1`}
         onChange={(event) => setNextName(event.target.value)}
         onBlur={(event) => void onSave(id, event.target.value, nextColor, name, color)}
       />

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createProject, errorMessage } from "../../lib/api";
+import { FIELD, FIELD_SELECT } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
 import { useContexts } from "../../lib/queries";
 import { useUi } from "../../stores/ui";
@@ -67,7 +68,7 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
             required
             maxLength={200}
             value={name}
-            className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+            className={FIELD}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
@@ -75,7 +76,7 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
           <span className="mb-1.5 block text-[13px] text-fg-secondary">{t("project.context")}</span>
           <select
             value={chosenContext}
-            className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+            className={FIELD_SELECT}
             onChange={(event) => setChosenContext(event.target.value)}
           >
             {listed.map((context) => (
@@ -90,7 +91,7 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
           <input
             type="date"
             value={due}
-            className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+            className={FIELD}
             onChange={(event) => setDue(event.target.value)}
           />
         </label>

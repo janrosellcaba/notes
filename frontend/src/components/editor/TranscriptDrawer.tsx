@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui/Button";
+import { FIELD, FIELD_TEXTAREA } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
 
 function highlight(line: string, query: string) {
@@ -68,7 +69,7 @@ export function TranscriptDrawer({
               value={query}
               aria-label={t("editor.find")}
               placeholder={t("editor.find")}
-              className="min-h-9 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+              className={`${FIELD} min-w-0 flex-1`}
               onChange={(event) => setQuery(event.target.value)}
             />
             <Button variant="add" onClick={() => setEditing((current) => !current)}>
@@ -79,7 +80,7 @@ export function TranscriptDrawer({
             <textarea
               value={value}
               aria-label={t("editor.raw")}
-              className="min-h-48 w-full resize-y rounded-[8px] border border-border bg-canvas p-3 font-mono text-[13px] leading-6 outline-none focus:border-fg"
+              className={`${FIELD_TEXTAREA} min-h-48 font-mono leading-6`}
               onChange={(event) => onChange(event.target.value)}
             />
           ) : (

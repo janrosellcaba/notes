@@ -12,6 +12,7 @@ import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
+import { FIELD_SELECT } from "../lib/field";
 import { applyTaskStatuses } from "../lib/taskActions";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
@@ -125,7 +126,7 @@ export function TasksPage() {
         <select
           aria-label={t("filter.project")}
           value={projectFilter}
-          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          className={`${FIELD_SELECT} w-auto`}
           onChange={(event) => setProjectFilter(event.target.value)}
         >
           <option value="all">{t("filter.anyProject")}</option>
@@ -138,7 +139,7 @@ export function TasksPage() {
         <select
           aria-label={t("filter.priority")}
           value={priorityFilter}
-          className="min-h-9 rounded-md border border-border bg-canvas px-2 text-[13px] outline-none focus:border-fg"
+          className={`${FIELD_SELECT} w-auto`}
           onChange={(event) => setPriorityFilter(event.target.value)}
         >
           <option value="all">{t("filter.anyPriority")}</option>

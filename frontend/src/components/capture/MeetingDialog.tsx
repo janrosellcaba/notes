@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createItem, getItem, listItems, patchItem } from "../../lib/api";
 import { filedContext } from "../../lib/capture";
 import { meetingTitle } from "../../lib/dates";
+import { FIELD, FIELD_SELECT, FIELD_TEXTAREA } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useUi } from "../../stores/ui";
@@ -118,7 +119,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
           autoFocus
           value={title}
           aria-label={t("editor.title")}
-          className="min-h-11 rounded-[8px] border border-border bg-canvas px-3 text-[16px] outline-none focus:border-fg"
+          className={FIELD}
           onFocus={(event) => event.currentTarget.select()}
           onChange={(event) => setTitle(event.target.value)}
         />
@@ -126,7 +127,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
           {t("meeting.notes")}
           <textarea
             value={notes}
-            className="mt-1.5 min-h-28 w-full resize-y rounded-[8px] border border-border bg-canvas px-3 py-2 text-[16px] leading-[1.6] outline-none focus:border-fg"
+            className={`mt-1.5 ${FIELD_TEXTAREA}`}
             onChange={(event) => setNotes(event.target.value)}
           />
         </label>
@@ -134,7 +135,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
           {t("meeting.hint")}
           <textarea
             value={transcript}
-            className="mt-1.5 min-h-28 w-full resize-y rounded-[8px] border border-border bg-canvas px-3 py-2 text-[16px] leading-[1.6] outline-none focus:border-fg"
+            className={`mt-1.5 ${FIELD_TEXTAREA}`}
             onChange={(event) => setTranscript(event.target.value)}
           />
         </label>
@@ -145,7 +146,7 @@ export function MeetingDialog({ projectId, onClose }: { projectId: string | null
             <select
               value={existingId}
               aria-label={t("meeting.existing")}
-              className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+              className={`${FIELD_SELECT} min-w-0 flex-1`}
               onChange={(event) => {
                 const next = event.target.value;
                 if (!next) {

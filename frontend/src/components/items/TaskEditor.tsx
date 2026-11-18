@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { createItem, deleteItem, listItems, patchItem, uploadAttachment } from "../../lib/api";
+import { FIELD, FIELD_SELECT, FIELD_TEXTAREA } from "../../lib/field";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts, useProjectList } from "../../lib/queries";
@@ -17,8 +18,8 @@ import { Attachments } from "./Attachments";
 
 const PRIORITIES: ItemPriority[] = ["none", "low", "medium", "high", "urgent"];
 
-const fieldClass =
-  "mt-1.5 min-h-9 w-full rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg";
+const fieldClass = `mt-1.5 ${FIELD}`;
+const selectClass = `mt-1.5 ${FIELD_SELECT}`;
 
 export function TaskCreateDialog({
   projectId: initialProjectId,
@@ -199,7 +200,7 @@ export function TaskCreateDialog({
               value={subtask}
               aria-label={t("task.addSubtask")}
               placeholder={t("task.addSubtask")}
-              className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
+              className={`${FIELD} min-w-0 flex-1`}
               onChange={(event) => setSubtask(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -217,7 +218,7 @@ export function TaskCreateDialog({
           value={body}
           aria-label={t("task.notes")}
           placeholder={t("task.notes")}
-          className="min-h-24 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
+          className={`${FIELD_TEXTAREA} min-h-24`}
           onChange={(event) => setBody(event.target.value)}
         />
         <div>
@@ -501,7 +502,7 @@ export function TaskEditor({
                 value={subtask}
                 aria-label={t("task.addSubtask")}
                 placeholder={t("task.addSubtask")}
-                className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
+                className={`${FIELD} min-w-0 flex-1`}
                 onChange={(event) => setSubtask(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -520,7 +521,7 @@ export function TaskEditor({
           value={body}
           aria-label={t("task.notes")}
           placeholder={t("task.notes")}
-          className="min-h-28 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
+          className={FIELD_TEXTAREA}
           onChange={(event) => setBody(event.target.value)}
         />
         <Attachments itemId={item.id} />
@@ -585,7 +586,7 @@ function TaskDetails({
         {t("task.priority")}
         <select
           value={priority}
-          className={fieldClass}
+          className={selectClass}
           onChange={(event) => onPriority(event.target.value as ItemPriority)}
         >
           {PRIORITIES.map((option) => (
@@ -607,7 +608,7 @@ function TaskDetails({
       </label>
       <label className="block text-[12px] text-fg-muted sm:col-span-2">
         {t("task.project")}
-        <select value={projectId} className={fieldClass} onChange={(event) => onProject(event.target.value)}>
+        <select value={projectId} className={selectClass} onChange={(event) => onProject(event.target.value)}>
           <option value="">{t("tasks.noProject")}</option>
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
@@ -619,7 +620,7 @@ function TaskDetails({
       {projectId ? null : (
         <label className="block text-[12px] text-fg-muted sm:col-span-2">
           {t("tasks.context")}
-          <select value={contextId} className={fieldClass} onChange={(event) => onContext(event.target.value)}>
+          <select value={contextId} className={selectClass} onChange={(event) => onContext(event.target.value)}>
             <option value="">{t("tasks.noContext")}</option>
             {contexts.map((context) => (
               <option key={context.id} value={context.id}>
