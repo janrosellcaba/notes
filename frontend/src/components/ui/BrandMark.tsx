@@ -65,8 +65,8 @@ export function BrandMark({
   const preferred = useUi((state) => state.logoStyle);
   const logo = style ?? preferred;
   if (logo === "threeD") {
-    // Real clay 3D render of the same mark — edge-to-edge black tile, no gray margin.
-    return <ImageMark src={LOGO_SRC.threeD} size={size} className={className} tone="dark" fit="cover" />;
+    // Cropped clay photo of the same mark — black tile, no gray margin, same footprint as flat.
+    return <ImageMark src={`${LOGO_SRC.threeD}?v=5`} size={size} className={className} tone="dark" fit="cover" />;
   }
   if (logo === "doodle" || logo === "smile") {
     return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" fit="contain" />;
