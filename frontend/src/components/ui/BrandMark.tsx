@@ -16,12 +16,14 @@ function ImageMark({
   className,
   tone,
   fit = "cover",
+  invert = false,
 }: {
   src: string;
   size: number;
   className?: string;
   tone: "dark" | "light";
   fit?: "cover" | "contain";
+  invert?: boolean;
 }) {
   return (
     <span
@@ -44,6 +46,7 @@ function ImageMark({
             ? "h-full w-full object-contain p-[8%]"
             : "h-full w-full object-cover"
         }
+        style={invert ? { filter: "invert(1)" } : undefined}
         draggable={false}
         decoding="async"
       />
@@ -63,10 +66,21 @@ export function BrandMark({
   className?: string;
 }) {
   const preferred = useUi((state) => state.logoStyle);
+  const theme = useUi((state) => state.theme);
   const logo = style ?? preferred;
   if (logo === "threeD") {
-    // Cropped clay photo of the same mark — black tile, no gray margin, same footprint as flat.
-    return <ImageMark src={`${LOGO_SRC.threeD}?v=5`} size={size} className={className} tone="dark" fit="cover" />;
+    // Same clay photo; invert in light mode so the tile stays white clay → black clay.
+    const light = theme === "light";
+    return (
+      <ImageMark
+        src={`${LOGO_SRC.threeD}?v=6`}
+        size={size}
+        className={className}
+        tone={light ? "light" : "dark"}
+        fit="cover"
+        invert={light}
+      />
+    );
   }
   if (logo === "doodle" || logo === "smile") {
     return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" fit="contain" />;
