@@ -35,6 +35,8 @@ export function TaskCreateDialog({
   const projects = useProjectList("all");
   const contexts = useContexts();
   const fileRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const batchRef = useRef<HTMLTextAreaElement>(null);
   const [title, setTitle] = useState("");
   const [batch, setBatch] = useState(false);
   const [batchText, setBatchText] = useState("");
@@ -50,6 +52,27 @@ export function TaskCreateDialog({
   const [pendingSubtasks, setPendingSubtasks] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [pending, setPending] = useState(false);
+
+  // Focus after the triggering shortcut keyup so "t"/"c" never lands in the title.
+  useEffect(() => {
+    let focused = false;
+    function focusField() {
+      if (focused) return;
+      focused = true;
+      const field = batch ? batchRef.current : titleRef.current;
+      field?.focus();
+      // Drop a stray shortcut character if the browser still inserted one.
+      if (!batch && titleRef.current && /^[tc]$/i.test(titleRef.current.value)) {
+        setTitle("");
+      }
+    }
+    window.addEventListener("keyup", focusField, { once: true });
+    const fallback = window.setTimeout(focusField, 80);
+    return () => {
+      window.removeEventListener("keyup", focusField);
+      window.clearTimeout(fallback);
+    };
+  }, [batch]);
 
   function addPendingSubtask() {
     const next = subtask.trim();
@@ -153,7 +176,7 @@ export function TaskCreateDialog({
         </div>
         {batch ? (
           <textarea
-            autoFocus
+            ref={batchRef}
             value={batchText}
             aria-label={t("tasks.batchHint")}
             placeholder={t("tasks.batchHint")}
@@ -163,7 +186,7 @@ export function TaskCreateDialog({
         ) : (
           <>
             <input
-              autoFocus
+              ref={titleRef}
               value={title}
               aria-label={t("editor.title")}
               placeholder={t("editor.title")}

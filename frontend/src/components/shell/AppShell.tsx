@@ -42,14 +42,19 @@ export function AppShell() {
       const key = event.key.toLowerCase();
       if (key === "c") {
         event.preventDefault();
+        event.stopPropagation();
         useUi.getState().openCapture({ type: "note", projectId: null });
+        return;
       }
       if (key === "t") {
         event.preventDefault();
+        event.stopPropagation();
         useUi.getState().openCapture({ type: "task" });
+        return;
       }
       if (key === "d") {
         event.preventDefault();
+        event.stopPropagation();
         setTodayPanel(true);
       }
     }

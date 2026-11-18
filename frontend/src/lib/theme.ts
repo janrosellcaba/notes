@@ -31,7 +31,7 @@ export function applyFavicon(theme: Theme = readTheme(), logo: LogoStyle = readL
   if (!(icon instanceof HTMLLinkElement)) return;
   const next = faviconFor(theme, logo);
   // Force a reload when switching between same-type assets (e.g. jpg → jpg).
-  icon.href = `${next.href}${next.href.includes("?") ? "&" : "?"}v=${encodeURIComponent(logo)}`;
+  icon.href = `${next.href}${next.href.includes("?") ? "&" : "?"}v=${encodeURIComponent(`${logo}-2`)}`;
   icon.type = next.type;
 }
 

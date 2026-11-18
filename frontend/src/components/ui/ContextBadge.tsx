@@ -4,11 +4,11 @@ import { ContextMark } from "../shell/ContextMark";
 
 function contrastInk(hex: string): string {
   const raw = hex.replace("#", "").trim();
-  if (!/^[0-9a-fA-F]{6}$/.test(raw)) return "var(--color-fg)";
+  if (!/^[0-9a-fA-F]{6}$/.test(raw)) return "#fafafa";
   const r = Number.parseInt(raw.slice(0, 2), 16);
   const g = Number.parseInt(raw.slice(2, 4), 16);
   const b = Number.parseInt(raw.slice(4, 6), 16);
-  // Relative luminance — dark context colors need white labels.
+  // Relative luminance against the solid badge fill.
   const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   return luma > 0.55 ? "#18181b" : "#fafafa";
 }
@@ -24,10 +24,9 @@ export function ContextBadge({
 }) {
   const ink = contrastInk(color);
   const style = {
-    "--ctx": color,
     color: ink,
-    background: "color-mix(in srgb, var(--ctx) 28%, transparent)",
-    borderColor: "color-mix(in srgb, var(--ctx) 45%, transparent)",
+    background: color,
+    borderColor: color,
   } as CSSProperties;
   return (
     <span

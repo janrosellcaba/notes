@@ -279,12 +279,12 @@ function TaskListRow({
       {draggable ? (
         <button
           type="button"
-          className="inline-flex h-8 w-6 shrink-0 cursor-grab items-center justify-center text-fg-muted hover:text-fg active:cursor-grabbing"
+          className="inline-flex h-9 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-fg-muted hover:bg-interactive hover:text-fg active:cursor-grabbing"
           aria-label={t("tasks.drag")}
           {...drag.listeners}
           {...drag.attributes}
         >
-          <GripVertical size={14} />
+          <GripVertical size={16} />
         </button>
       ) : (
         <span className="w-6 shrink-0" />
