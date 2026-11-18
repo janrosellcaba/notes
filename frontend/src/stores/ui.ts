@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { readBoardOrder, writeBoardOrder, type BoardStatus } from "../lib/board";
+import { BOARD_STATUSES, type BoardStatus } from "../lib/board";
 import { readLogoStyle, writeLogoStyle, type LogoStyle } from "../lib/logo";
 import { readTaskFields, writeTaskFields, type TaskField, type TaskFieldVisibility } from "../lib/taskFields";
 import { applyFavicon, applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
@@ -74,8 +74,6 @@ type UiState = {
   setCalendarSlotOpen: (open: boolean) => void;
   setTheme: (theme: Theme) => void;
   setLogoStyle: (style: LogoStyle) => void;
-  setBoardOrder: (order: BoardStatus[]) => void;
-  moveBoardColumn: (status: BoardStatus, direction: -1 | 1) => void;
   setTaskField: (field: TaskField, shown: boolean) => void;
   setTourStep: (step: number | null) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -96,7 +94,7 @@ export const useUi = create<UiState>((set, get) => ({
   calendarSlotOpen: readBool(KEYS.calendarSlotOpen, true),
   theme: readTheme(),
   logoStyle: readLogoStyle(),
-  boardOrder: readBoardOrder(),
+  boardOrder: [...BOARD_STATUSES],
   taskFields: readTaskFields(),
   tourStep: null,
   paletteOpen: false,
@@ -132,22 +130,6 @@ export const useUi = create<UiState>((set, get) => ({
     writeLogoStyle(logoStyle);
     applyFavicon(get().theme, logoStyle);
     set({ logoStyle });
-  },
-  setBoardOrder: (boardOrder) => {
-    writeBoardOrder(boardOrder);
-    set({ boardOrder });
-  },
-  moveBoardColumn: (status, direction) => {
-    const order = [...get().boardOrder];
-    const index = order.indexOf(status);
-    const next = index + direction;
-    if (index < 0 || next < 0 || next >= order.length) return;
-    const swap = order[next];
-    if (!swap) return;
-    order[next] = status;
-    order[index] = swap;
-    writeBoardOrder(order);
-    set({ boardOrder: order });
   },
   setTaskField: (field, shown) => {
     const taskFields = { ...get().taskFields, [field]: shown };

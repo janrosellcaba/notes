@@ -61,8 +61,6 @@ export function SettingsPage() {
   const setContextId = useUi((state) => state.setContextId);
   const tasksView = useUi((state) => state.tasksView);
   const setTasksView = useUi((state) => state.setTasksView);
-  const boardOrder = useUi((state) => state.boardOrder);
-  const moveBoardColumn = useUi((state) => state.moveBoardColumn);
   const { t, locale, setLocale } = useI18n();
   const theme = useUi((state) => state.theme);
   const setTheme = useUi((state) => state.setTheme);
@@ -344,23 +342,6 @@ export function SettingsPage() {
                   { value: "board", label: t("tasks.board") },
                 ]}
               />
-            </div>
-            <div className="mt-4 border-b border-border-subtle pb-4">
-              <p className="text-[13px] text-fg-secondary">{t("settings.board")}</p>
-              <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.boardDetail")}</p>
-              <ul className="mt-3 flex flex-col">
-                {boardOrder.map((status, index) => (
-                  <li key={status} className="flex items-center gap-2 border-t border-border-subtle py-2 first:border-t-0">
-                    <span className="flex-1 text-[13px]">{t(`board.${status}` as MessageKey)}</span>
-                    <IconButton label={`${status} up`} disabled={index === 0} onClick={() => moveBoardColumn(status, -1)}>
-                      <ChevronUp size={16} />
-                    </IconButton>
-                    <IconButton label={`${status} down`} disabled={index === boardOrder.length - 1} onClick={() => moveBoardColumn(status, 1)}>
-                      <ChevronDown size={16} />
-                    </IconButton>
-                  </li>
-                ))}
-              </ul>
             </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label htmlFor="timezone" className="text-[13px] text-fg-secondary">
