@@ -7,7 +7,7 @@ export const LOGO_OPTIONS: readonly LogoStyle[] = ["flat", "doodle", "smile", "t
 export const LOGO_SRC: Record<Exclude<LogoStyle, "flat">, string> = {
   doodle: "/brand/logo1.jpg",
   smile: "/brand/logo2.jpg",
-  threeD: "/brand/logo3.png",
+  threeD: "/brand/logo3.svg",
 };
 
 export function readLogoStyle(): LogoStyle {

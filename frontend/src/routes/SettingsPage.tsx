@@ -13,7 +13,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { TextField } from "../components/ui/TextField";
 import { LOGO_OPTIONS, type LogoStyle } from "../lib/logo";
-import { modKeyLabel } from "../lib/shortcuts";
+import { modKeyName } from "../lib/shortcuts";
 import {
   changePassword,
   createContext,
@@ -44,6 +44,7 @@ const SHORTCUTS = [
   { keys: ["T"], label: "shortcut.task" },
   { keys: ["D"], label: "shortcut.daily" },
   { keys: ["Esc"], label: "shortcut.close" },
+  { keys: ["Enter"], label: "shortcut.save" },
 ] as const;
 
 const fieldClass =
@@ -396,7 +397,7 @@ export function SettingsPage() {
                   <span className="text-[13px]">{t(shortcut.label)}</span>
                   <span className="inline-flex items-center gap-1">
                     {shortcut.keys.map((key) => (
-                      <Kbd key={key}>{key === "Mod" ? modKeyLabel().replace("+", "") : key}</Kbd>
+                      <Kbd key={key}>{key === "Mod" ? modKeyName() : key}</Kbd>
                     ))}
                   </span>
                 </li>

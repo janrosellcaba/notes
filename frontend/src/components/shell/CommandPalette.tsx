@@ -9,6 +9,7 @@ import { cn } from "../../lib/cn";
 import { searchTokens } from "../../lib/dates";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts } from "../../lib/queries";
+import { modKeyLabel } from "../../lib/shortcuts";
 import { useUi } from "../../stores/ui";
 import { Kbd } from "../ui/Kbd";
 import { Modal } from "../ui/Modal";
@@ -141,7 +142,7 @@ export function CommandPalette() {
             }}
           />
           <span className="rounded-[5px] border border-border-subtle px-1 py-px">
-            <Kbd>K</Kbd>
+            <Kbd>{`${modKeyLabel()}K`}</Kbd>
           </span>
         </div>
       </div>

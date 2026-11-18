@@ -6,6 +6,7 @@ import { LogOut, Search, Settings } from "lucide-react";
 import { getMe, logout } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
+import { modKeyLabel } from "../../lib/shortcuts";
 import { useUi } from "../../stores/ui";
 import { BrandMark } from "../ui/BrandMark";
 import { Kbd } from "../ui/Kbd";
@@ -44,7 +45,7 @@ export function TopBar() {
           <Search size={14} />
           <span className="hidden flex-1 text-left md:inline">{t("nav.search")}</span>
           <span className="hidden rounded-[5px] border border-border-subtle px-1 py-px md:inline">
-            <Kbd>K</Kbd>
+            <Kbd>{`${modKeyLabel()}K`}</Kbd>
           </span>
         </button>
         <Popover
