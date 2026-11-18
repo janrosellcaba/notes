@@ -18,9 +18,9 @@ function ToastItem({
 }) {
   const dismiss = useUi((state) => state.dismissToast);
   useEffect(() => {
-    const timer = window.setTimeout(() => dismiss(id), 4000);
+    const timer = window.setTimeout(() => dismiss(id), action ? 8000 : 4000);
     return () => window.clearTimeout(timer);
-  }, [dismiss, id]);
+  }, [action, dismiss, id]);
   return (
     <p className="pointer-events-auto rounded-[8px] border border-border bg-elevated px-3 py-2 text-[13px] text-fg">
       {message}

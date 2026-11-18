@@ -72,25 +72,33 @@ function Frame({
   );
 }
 
+type ColumnProps = {
+  label: string;
+  items: Item[];
+  showProject: boolean;
+  selectedIds?: string[];
+  onOpen: (item: Item) => void;
+  onAdd: (title: string) => void;
+  onMove: (item: Item, status: ColumnStatus) => void;
+  onSelect?: (item: Item, event: { shiftKey: boolean }) => void;
+  onAnchor?: (item: Item) => void;
+  minimized: boolean;
+  onToggle: () => void;
+};
+
 export function PlainColumn({
   label,
   items,
   showProject,
+  selectedIds = [],
   onOpen,
   onAdd,
   onMove,
+  onSelect,
+  onAnchor,
   minimized,
   onToggle,
-}: {
-  label: string;
-  items: Item[];
-  showProject: boolean;
-  onOpen: (item: Item) => void;
-  onAdd: (title: string) => void;
-  onMove: (item: Item, status: ColumnStatus) => void;
-  minimized: boolean;
-  onToggle: () => void;
-}) {
+}: ColumnProps) {
   return (
     <Frame label={label} count={items.length} minimized={minimized} onToggle={onToggle}>
       <div className="flex min-h-24 flex-col gap-2">
@@ -99,8 +107,11 @@ export function PlainColumn({
             key={item.id}
             item={item}
             showProject={showProject}
+            selected={selectedIds.includes(item.id)}
             onOpen={onOpen}
             onMove={(status) => onMove(item, status)}
+            onSelect={onSelect}
+            onAnchor={() => onAnchor?.(item)}
           />
         ))}
         <AddCard label={label} onAdd={onAdd} />
@@ -114,22 +125,15 @@ export function DropColumn({
   label,
   items,
   showProject,
+  selectedIds = [],
   onOpen,
   onAdd,
   onMove,
+  onSelect,
+  onAnchor,
   minimized,
   onToggle,
-}: {
-  status: ColumnStatus;
-  label: string;
-  items: Item[];
-  showProject: boolean;
-  onOpen: (item: Item) => void;
-  onAdd: (title: string) => void;
-  onMove: (item: Item, status: ColumnStatus) => void;
-  minimized: boolean;
-  onToggle: () => void;
-}) {
+}: ColumnProps & { status: ColumnStatus }) {
   const droppable = useDroppable({ id: columnId(status) });
   return (
     <Frame label={label} count={items.length} minimized={minimized} onToggle={onToggle}>
@@ -140,8 +144,11 @@ export function DropColumn({
               key={item.id}
               item={item}
               showProject={showProject}
+              selected={selectedIds.includes(item.id)}
               onOpen={onOpen}
               onMove={(next) => onMove(item, next)}
+              onSelect={onSelect}
+              onAnchor={() => onAnchor?.(item)}
             />
           ))}
           <AddCard label={label} onAdd={onAdd} />

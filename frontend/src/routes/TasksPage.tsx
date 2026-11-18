@@ -11,6 +11,7 @@ import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { todayISO } from "../lib/dates";
 import { listItems, patchItem } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
+import { applyTaskStatuses } from "../lib/taskActions";
 import { queryKeys } from "../lib/queryKeys";
 import { useI18n } from "../lib/i18n";
 import { useUi } from "../stores/ui";
@@ -48,22 +49,27 @@ export function TasksPage() {
   }
 
   async function setStatus(item: Item, status: ItemStatus) {
-    if (item.status === status) return;
-    const lists = snapshotLists(queryClient);
-    mapItem(queryClient, item.id, (current) => ({
-      ...current,
-      status,
-      completed_at: status === "done" ? new Date().toISOString() : null,
-    }));
-    try {
-      const saved = await patchItem(item.id, { status });
-      mapItem(queryClient, item.id, () => saved);
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      await queryClient.invalidateQueries({ queryKey: ["home"] });
-    } catch (error) {
-      restoreLists(queryClient, lists);
-      pushToast(error instanceof Error ? error.message : "Could not update the task");
-    }
+    await applyTaskStatuses(
+      queryClient,
+      [{ item, status }],
+      {
+        pushToast,
+        message: t("tasks.statusUpdated"),
+        undoLabel: t("common.undo"),
+      },
+    );
+  }
+
+  async function setBulkStatus(rows: Item[], status: ItemStatus) {
+    await applyTaskStatuses(
+      queryClient,
+      rows.map((item) => ({ item, status })),
+      {
+        pushToast,
+        message: t("tasks.bulkUpdated", { count: String(rows.length) }),
+        undoLabel: t("common.undo"),
+      },
+    );
   }
 
   async function setPriority(item: Item, priority: ItemPriority) {
@@ -106,6 +112,7 @@ export function TasksPage() {
           items={tasks.data?.items ?? []}
           onOpen={setEditing}
           onStatus={(row, status) => void setStatus(row, status)}
+          onBulkStatus={(rows, status) => void setBulkStatus(rows, status)}
           onPriority={(row, priority) => void setPriority(row, priority)}
         />
       )}

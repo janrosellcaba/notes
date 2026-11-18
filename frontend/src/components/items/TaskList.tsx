@@ -10,8 +10,8 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { COLLAPSED_BY_DEFAULT, groupTasksByStatus, LIST_STATUS_ORDER } from "../../lib/dates";
 import { useI18n, type MessageKey } from "../../lib/i18n";
@@ -45,12 +45,14 @@ export function TaskList({
   onOpen,
   onStatus,
   onPriority,
+  onBulkStatus,
 }: {
   items: Item[];
   showProject?: boolean;
   onOpen: (item: Item) => void;
   onStatus: (item: Item, status: ItemStatus) => void;
   onPriority?: (item: Item, priority: ItemPriority) => void;
+  onBulkStatus?: (items: Item[], status: ItemStatus) => void;
 }) {
   const { t } = useI18n();
   const desktop = useDesktop();
@@ -62,7 +64,7 @@ export function TaskList({
   const [selected, setSelected] = useState<string[]>([]);
   const [lastClicked, setLastClicked] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -70,6 +72,14 @@ export function TaskList({
     () => LIST_STATUS_ORDER.flatMap((status) => groups[status]),
     [groups],
   );
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelected([]);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function toggleCollapsed(status: ItemStatus) {
     setCollapsed((current) => ({ ...current, [status]: !current[status] }));
@@ -83,26 +93,20 @@ export function TaskList({
     setSelected(flatRoots.slice(start, end + 1).map((item) => item.id));
   }
 
-  function onRowSelect(item: Item, event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) {
-    if (event.shiftKey && lastClicked) {
-      selectRange(lastClicked, item.id);
-      return;
-    }
-    if (event.metaKey || event.ctrlKey) {
-      setSelected((current) =>
-        current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id],
-      );
-      setLastClicked(item.id);
-      return;
-    }
-    setSelected((current) => (current.length === 1 && current[0] === item.id ? [] : [item.id]));
+  function onRowSelect(item: Item, event: { shiftKey: boolean }) {
+    if (!event.shiftKey) return;
+    if (lastClicked) selectRange(lastClicked, item.id);
+    else setSelected([item.id]);
     setLastClicked(item.id);
   }
 
   function bulkStatus(status: ItemStatus) {
     const chosen = nested.roots.filter((item) => selected.includes(item.id));
-    for (const item of chosen) {
-      if (item.status !== status) onStatus(item, status);
+    if (onBulkStatus) onBulkStatus(chosen, status);
+    else {
+      for (const item of chosen) {
+        if (item.status !== status) onStatus(item, status);
+      }
     }
     setSelected([]);
   }
@@ -118,9 +122,13 @@ export function TaskList({
     const moving = selected.includes(active.id)
       ? nested.roots.filter((item) => selected.includes(item.id))
       : [active];
-    for (const item of moving) {
-      if (item.status !== status) onStatus(item, status);
+    if (onBulkStatus && moving.length > 1) onBulkStatus(moving, status);
+    else {
+      for (const item of moving) {
+        if (item.status !== status) onStatus(item, status);
+      }
     }
+    if (moving.length > 1) setSelected([]);
   }
 
   const body = (
@@ -188,6 +196,7 @@ export function TaskList({
                       onSelect={onRowSelect}
                       onStatus={onStatus}
                       onPriority={onPriority}
+                      onAnchor={() => setLastClicked(item.id)}
                     />
                     {(nested.children.get(item.id) ?? []).map((child) => (
                       <div key={child.id} className="pl-7">
@@ -200,6 +209,7 @@ export function TaskList({
                           onSelect={onRowSelect}
                           onStatus={onStatus}
                           onPriority={onPriority}
+                          onAnchor={() => setLastClicked(child.id)}
                         />
                       </div>
                     ))}
@@ -243,15 +253,17 @@ function TaskListRow({
   onSelect,
   onStatus,
   onPriority,
+  onAnchor,
 }: {
   item: Item;
   showProject: boolean;
   selected: boolean;
   draggable: boolean;
   onOpen: (item: Item) => void;
-  onSelect: (item: Item, event: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
+  onSelect: (item: Item, event: { shiftKey: boolean }) => void;
   onStatus: (item: Item, status: ItemStatus) => void;
   onPriority?: (item: Item, priority: ItemPriority) => void;
+  onAnchor: () => void;
 }) {
   const { t } = useI18n();
   const drag = useDraggable({ id: item.id, disabled: !draggable });
@@ -272,46 +284,38 @@ function TaskListRow({
     <div
       ref={draggable ? drag.setNodeRef : undefined}
       style={style}
-      className={`group flex min-h-9 items-center gap-1 rounded-md px-1 ${
+      className={`group flex min-h-9 cursor-grab items-center gap-1.5 rounded-md px-1.5 active:cursor-grabbing ${
         selected ? "bg-interactive ring-1 ring-border-strong" : "hover:bg-interactive"
       }`}
+      {...(draggable ? drag.listeners : {})}
+      {...(draggable ? drag.attributes : {})}
     >
-      {draggable ? (
-        <button
-          type="button"
-          className="inline-flex h-9 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-fg-muted hover:bg-interactive hover:text-fg active:cursor-grabbing"
-          aria-label={t("tasks.drag")}
-          {...drag.listeners}
-          {...drag.attributes}
-        >
-          <GripVertical size={16} />
-        </button>
-      ) : (
-        <span className="w-6 shrink-0" />
-      )}
-      <input
-        type="checkbox"
-        checked={selected}
-        aria-label={t("tasks.select")}
-        className="h-3.5 w-3.5 shrink-0 accent-[var(--color-fg)]"
-        onChange={() => undefined}
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect(item, event);
-        }}
-      />
-      <StatusSelect status={item.status ?? "todo"} showLabel={false} onChange={(status) => onStatus(item, status)} />
+      <div
+        className="shrink-0"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <StatusSelect status={item.status ?? "todo"} showLabel={false} onChange={(status) => onStatus(item, status)} />
+      </div>
       {onPriority ? (
-        <PrioritySelect priority={item.priority} onChange={(priority) => onPriority(item, priority)} />
+        <div
+          className="shrink-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <PrioritySelect priority={item.priority} onChange={(priority) => onPriority(item, priority)} />
+        </div>
       ) : null}
       <button
         type="button"
-        className="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 text-left"
+        className="flex min-h-9 min-w-0 flex-1 cursor-inherit items-center gap-2.5 text-left"
         onClick={(event) => {
-          if (event.shiftKey || event.metaKey || event.ctrlKey) {
+          if (event.shiftKey) {
+            event.preventDefault();
             onSelect(item, event);
             return;
           }
+          onAnchor();
           onOpen(item);
         }}
       >

@@ -20,6 +20,7 @@ import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { relativeTime, todayISO } from "../lib/dates";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
+import { applyTaskStatuses } from "../lib/taskActions";
 import { useUi } from "../stores/ui";
 import type { Item, ItemFilters, ItemPriority, ItemStatus, ProjectStatus } from "../types/api";
 
@@ -116,13 +117,22 @@ export function ProjectDetailPage() {
     }
   }
 
-  async function setProjectStatus(status: ProjectStatus) {
+  async function setProjectStatus(status: ProjectStatus, withUndo = true) {
     if (!project.data) return;
+    const previous = project.data.status;
     setMenu(false);
     try {
       const saved = await patchProject(project.data.id, { status });
       queryClient.setQueryData(queryKeys.project(project.data.id), saved);
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (withUndo && previous !== status) {
+        pushToast(t("project.statusUpdated"), undefined, {
+          label: t("common.undo"),
+          run: () => {
+            void setProjectStatus(previous, false);
+          },
+        });
+      }
     } catch (error) {
       pushToast(error instanceof Error ? error.message : "Could not update the project");
     }
@@ -141,22 +151,27 @@ export function ProjectDetailPage() {
   }
 
   async function setStatus(item: Item, status: ItemStatus) {
-    if (item.status === status) return;
-    const lists = snapshotLists(queryClient);
-    mapItem(queryClient, item.id, (current) => ({
-      ...current,
-      status,
-      completed_at: status === "done" ? new Date().toISOString() : null,
-    }));
-    try {
-      const saved = await patchItem(item.id, { status });
-      mapItem(queryClient, item.id, () => saved);
-      await queryClient.invalidateQueries({ queryKey: ["items"] });
-      await queryClient.invalidateQueries({ queryKey: ["home"] });
-    } catch (error) {
-      restoreLists(queryClient, lists);
-      pushToast(error instanceof Error ? error.message : "Could not update the task");
-    }
+    await applyTaskStatuses(
+      queryClient,
+      [{ item, status }],
+      {
+        pushToast,
+        message: t("tasks.statusUpdated"),
+        undoLabel: t("common.undo"),
+      },
+    );
+  }
+
+  async function setBulkStatus(rows: Item[], status: ItemStatus) {
+    await applyTaskStatuses(
+      queryClient,
+      rows.map((item) => ({ item, status })),
+      {
+        pushToast,
+        message: t("tasks.bulkUpdated", { count: String(rows.length) }),
+        undoLabel: t("common.undo"),
+      },
+    );
   }
 
   async function setPriority(item: Item, priority: ItemPriority) {
@@ -179,7 +194,7 @@ export function ProjectDetailPage() {
   const isActive = current.status === "active";
   const meetingRows = [...(meetings.data?.items ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at));
   const nested = nestTasks(tasks.data?.items ?? []);
-  const tabs: Tab[] = ["notes", "tasks", "meetings", "calendar"];
+  const tabs: Tab[] = ["tasks", "notes", "meetings", "calendar"];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -340,6 +355,7 @@ export function ProjectDetailPage() {
               showProject={false}
               onOpen={setEditing}
               onStatus={(row, status) => void setStatus(row, status)}
+              onBulkStatus={(rows, status) => void setBulkStatus(rows, status)}
               onPriority={(row, priority) => void setPriority(row, priority)}
             />
           )}

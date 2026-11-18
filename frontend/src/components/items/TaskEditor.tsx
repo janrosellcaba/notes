@@ -36,10 +36,8 @@ export function TaskCreateDialog({
   const contexts = useContexts();
   const fileRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const batchRef = useRef<HTMLTextAreaElement>(null);
   const [title, setTitle] = useState("");
-  const [batch, setBatch] = useState(false);
-  const [batchText, setBatchText] = useState("");
+  const [addMore, setAddMore] = useState(false);
   const [body, setBody] = useState("");
   const [due, setDue] = useState(initialDue ?? "");
   const [starts, setStarts] = useState("");
@@ -59,12 +57,8 @@ export function TaskCreateDialog({
     function focusField() {
       if (focused) return;
       focused = true;
-      const field = batch ? batchRef.current : titleRef.current;
-      field?.focus();
-      // Drop a stray shortcut character if the browser still inserted one.
-      if (!batch && titleRef.current && /^[tc]$/i.test(titleRef.current.value)) {
-        setTitle("");
-      }
+      titleRef.current?.focus();
+      if (titleRef.current && /^[tc]$/i.test(titleRef.current.value)) setTitle("");
     }
     window.addEventListener("keyup", focusField, { once: true });
     const fallback = window.setTimeout(focusField, 80);
@@ -72,7 +66,17 @@ export function TaskCreateDialog({
       window.removeEventListener("keyup", focusField);
       window.clearTimeout(fallback);
     };
-  }, [batch]);
+  }, []);
+
+  function resetForNext() {
+    setTitle("");
+    setBody("");
+    setSubtask("");
+    setPendingSubtasks([]);
+    setFiles([]);
+    setPending(false);
+    window.setTimeout(() => titleRef.current?.focus(), 0);
+  }
 
   function addPendingSubtask() {
     const next = subtask.trim();
@@ -111,27 +115,6 @@ export function TaskCreateDialog({
 
   async function submit() {
     if (pending) return;
-    if (batch) {
-      const lines = batchText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      if (lines.length === 0) return;
-      setPending(true);
-      try {
-        for (const line of lines) {
-          await createOne(line);
-        }
-        await queryClient.invalidateQueries({ queryKey: ["items"] });
-        await queryClient.invalidateQueries({ queryKey: ["home"] });
-        onClose();
-      } catch (error) {
-        pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
-        setPending(false);
-      }
-      return;
-    }
-
     const nextTitle = title.trim();
     if (!nextTitle) return;
     setPending(true);
@@ -139,16 +122,15 @@ export function TaskCreateDialog({
       await createOne(nextTitle, { body: body.trim(), subtasks: pendingSubtasks, files });
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
-      onClose();
+      if (addMore) resetForNext();
+      else onClose();
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
       setPending(false);
     }
   }
 
-  const canSubmit = batch
-    ? batchText.split("\n").some((line) => line.trim().length > 0)
-    : title.trim().length > 0;
+  const canSubmit = title.trim().length > 0;
 
   return (
     <Modal title={t("tasks.new")} onClose={onClose}>
@@ -159,149 +141,133 @@ export function TaskCreateDialog({
           void submit();
         }}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          {!batch ? <StatusSelect status={status} showLabel={false} onChange={setStatus} /> : null}
-          <button
-            type="button"
-            className={`rounded-md px-2 py-1 text-[12px] ${batch ? "bg-interactive text-fg" : "text-fg-muted hover:text-fg"}`}
-            onClick={() => {
-              setBatch((value) => !value);
-              setTitle("");
-              setBatchText("");
-            }}
-            title={t("tasks.batchHint")}
-          >
-            {batch ? t("tasks.single") : t("tasks.batch")}
-          </button>
-        </div>
-        {batch ? (
-          <textarea
-            ref={batchRef}
-            value={batchText}
-            aria-label={t("tasks.batchHint")}
-            placeholder={t("tasks.batchHint")}
-            className="min-h-36 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
-            onChange={(event) => setBatchText(event.target.value)}
-          />
-        ) : (
-          <>
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusSelect status={status} showLabel={false} onChange={setStatus} />
+          <label className="inline-flex items-center gap-2 text-[12px] text-fg-secondary">
             <input
-              ref={titleRef}
-              value={title}
-              aria-label={t("editor.title")}
-              placeholder={t("editor.title")}
-              className="min-h-10 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
-              onChange={(event) => setTitle(event.target.value)}
+              type="checkbox"
+              checked={addMore}
+              className="h-3.5 w-3.5 accent-[var(--color-fg)]"
+              onChange={(event) => setAddMore(event.target.checked)}
             />
-            <TaskDetails
-              due={due}
-              starts={starts}
-              assignee={assignee}
-              priority={priority}
-              projectId={projectId}
-              contextId={contextId}
-              projects={projects.data?.projects ?? []}
-              contexts={contexts.data?.contexts ?? []}
-              onDue={setDue}
-              onStarts={setStarts}
-              onAssignee={setAssignee}
-              onPriority={setPriority}
-              onProject={setProjectId}
-              onContext={setContextId}
-            />
-            <div>
-              <p className="text-[13px] text-fg-secondary">{t("task.subtasks")}</p>
-              <ul className="mt-1.5">
-                {pendingSubtasks.map((row, index) => (
-                  <li key={`${row}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
-                    <span className="min-w-0 flex-1 truncate">{row}</span>
-                    <button
-                      type="button"
-                      className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
-                      aria-label={t("editor.remove")}
-                      onClick={() => setPendingSubtasks((rows) => rows.filter((_, i) => i !== index))}
-                    >
-                      <X size={12} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-2 flex gap-2">
-                <input
-                  value={subtask}
-                  aria-label={t("task.addSubtask")}
-                  placeholder={t("task.addSubtask")}
-                  className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
-                  onChange={(event) => setSubtask(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addPendingSubtask();
-                    }
-                  }}
-                />
-                <Button type="button" variant="consult" disabled={subtask.trim().length === 0} onClick={addPendingSubtask}>
-                  {t("common.create")}
-                </Button>
-              </div>
-            </div>
-            <textarea
-              value={body}
-              aria-label={t("task.notes")}
-              placeholder={t("task.notes")}
-              className="min-h-24 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
-              onChange={(event) => setBody(event.target.value)}
-            />
-            <div>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[13px] text-fg-secondary">{t("editor.attachments")}</p>
+            {t("tasks.addMore")}
+          </label>
+        </div>
+        <input
+          ref={titleRef}
+          value={title}
+          aria-label={t("editor.title")}
+          placeholder={t("editor.title")}
+          className="min-h-10 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <TaskDetails
+          due={due}
+          starts={starts}
+          assignee={assignee}
+          priority={priority}
+          projectId={projectId}
+          contextId={contextId}
+          projects={projects.data?.projects ?? []}
+          contexts={contexts.data?.contexts ?? []}
+          onDue={setDue}
+          onStarts={setStarts}
+          onAssignee={setAssignee}
+          onPriority={setPriority}
+          onProject={setProjectId}
+          onContext={setContextId}
+        />
+        <div>
+          <p className="text-[13px] text-fg-secondary">{t("task.subtasks")}</p>
+          <ul className="mt-1.5">
+            {pendingSubtasks.map((row, index) => (
+              <li key={`${row}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
+                <span className="min-w-0 flex-1 truncate">{row}</span>
                 <button
                   type="button"
-                  className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-[12px] text-fg-muted hover:bg-interactive hover:text-fg"
-                  onClick={() => fileRef.current?.click()}
+                  className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
+                  aria-label={t("editor.remove")}
+                  onClick={() => setPendingSubtasks((rows) => rows.filter((_, i) => i !== index))}
                 >
-                  <Paperclip size={12} />
-                  {t("editor.addFile")}
+                  <X size={12} />
                 </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => {
-                    const next = event.target.files ? Array.from(event.target.files) : [];
-                    if (next.length) setFiles((current) => [...current, ...next]);
-                    event.target.value = "";
-                  }}
-                />
-              </div>
-              {files.length > 0 ? (
-                <ul className="mt-1.5 flex flex-col gap-1">
-                  {files.map((file, index) => (
-                    <li key={`${file.name}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
-                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                      <button
-                        type="button"
-                        className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
-                        aria-label={t("editor.remove")}
-                        onClick={() => setFiles((rows) => rows.filter((_, i) => i !== index))}
-                      >
-                        <X size={12} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </>
-        )}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={subtask}
+              aria-label={t("task.addSubtask")}
+              placeholder={t("task.addSubtask")}
+              className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
+              onChange={(event) => setSubtask(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addPendingSubtask();
+                }
+              }}
+            />
+            <Button type="button" variant="consult" disabled={subtask.trim().length === 0} onClick={addPendingSubtask}>
+              {t("common.create")}
+            </Button>
+          </div>
+        </div>
+        <textarea
+          value={body}
+          aria-label={t("task.notes")}
+          placeholder={t("task.notes")}
+          className="min-h-24 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
+          onChange={(event) => setBody(event.target.value)}
+        />
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] text-fg-secondary">{t("editor.attachments")}</p>
+            <button
+              type="button"
+              className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-[12px] text-fg-muted hover:bg-interactive hover:text-fg"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip size={12} />
+              {t("editor.addFile")}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                const next = event.target.files ? Array.from(event.target.files) : [];
+                if (next.length) setFiles((current) => [...current, ...next]);
+                event.target.value = "";
+              }}
+            />
+          </div>
+          {files.length > 0 ? (
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {files.map((file, index) => (
+                <li key={`${file.name}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
+                    aria-label={t("editor.remove")}
+                    onClick={() => setFiles((rows) => rows.filter((_, i) => i !== index))}
+                  >
+                    <X size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="consult" onClick={onClose}>
             {t("common.cancel")}
           </Button>
           <Button type="submit" variant="go" disabled={pending || !canSubmit}>
-            {batch ? t("tasks.createMany") : t("tasks.create")}
+            {t("tasks.create")}
           </Button>
         </div>
       </form>

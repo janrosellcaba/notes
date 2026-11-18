@@ -45,6 +45,7 @@ const SHORTCUTS = [
   { keys: ["D"], label: "shortcut.daily" },
   { keys: ["Esc"], label: "shortcut.close" },
   { keys: ["Enter"], label: "shortcut.save" },
+  { keys: ["Shift", "click"], label: "shortcut.shiftSelect" },
 ] as const;
 
 const fieldClass =

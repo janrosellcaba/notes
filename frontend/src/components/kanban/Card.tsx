@@ -8,6 +8,7 @@ import type { Item } from "../../types/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { patchItem } from "../../lib/api";
+import { cn } from "../../lib/cn";
 import { ContextBadge } from "../ui/ContextBadge";
 import { PrioritySelect } from "../ui/PrioritySelect";
 import { MoveToMenu } from "./MoveToMenu";
@@ -16,14 +17,20 @@ import type { ColumnStatus } from "./columns";
 export function TaskCard({
   item,
   showProject,
+  selected = false,
   onOpen,
   onMove,
+  onSelect,
+  onAnchor,
   drag,
 }: {
   item: Item;
   showProject: boolean;
+  selected?: boolean;
   onOpen: (item: Item) => void;
   onMove: (status: ColumnStatus) => void;
+  onSelect?: (item: Item, event: { shiftKey: boolean }) => void;
+  onAnchor?: () => void;
   drag?: {
     setNodeRef: (node: HTMLElement | null) => void;
     style: CSSProperties;
@@ -42,7 +49,10 @@ export function TaskCard({
     <article
       ref={drag?.setNodeRef}
       style={drag?.style}
-      className="rounded-[10px] border border-border-subtle bg-elevated p-3"
+      className={cn(
+        "cursor-grab rounded-[10px] border bg-elevated p-3 active:cursor-grabbing",
+        selected ? "border-border-strong ring-1 ring-border-strong" : "border-border-subtle",
+      )}
       {...drag?.attributes}
       {...drag?.listeners}
     >
@@ -57,9 +67,16 @@ export function TaskCard({
         </div>
         <button
           type="button"
-          className="min-w-0 flex-1 text-left text-[13px] font-medium hover:underline"
-          onClick={() => onOpen(item)}
-          onPointerDown={(event) => event.stopPropagation()}
+          className="min-w-0 flex-1 cursor-inherit text-left text-[13px] font-medium hover:underline"
+          onClick={(event) => {
+            if (event.shiftKey && onSelect) {
+              event.preventDefault();
+              onSelect(item, event);
+              return;
+            }
+            onAnchor?.();
+            onOpen(item);
+          }}
         >
           {item.title || t("common.untitled")}
         </button>
@@ -84,21 +101,30 @@ export function TaskCard({
 export function SortableTaskCard({
   item,
   showProject,
+  selected,
   onOpen,
   onMove,
+  onSelect,
+  onAnchor,
 }: {
   item: Item;
   showProject: boolean;
+  selected?: boolean;
   onOpen: (item: Item) => void;
   onMove: (status: ColumnStatus) => void;
+  onSelect?: (item: Item, event: { shiftKey: boolean }) => void;
+  onAnchor?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   return (
     <TaskCard
       item={item}
       showProject={showProject}
+      selected={selected}
       onOpen={onOpen}
       onMove={onMove}
+      onSelect={onSelect}
+      onAnchor={onAnchor}
       drag={{
         setNodeRef,
         listeners,
