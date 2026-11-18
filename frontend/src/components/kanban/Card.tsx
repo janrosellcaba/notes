@@ -42,7 +42,8 @@ export function TaskCard({
       {...drag?.attributes}
       {...drag?.listeners}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start gap-2">
+        <PriorityMark priority={item.priority ?? "none"} className="mt-0.5" />
         <button
           type="button"
           className="min-w-0 flex-1 text-left text-[13px] font-medium hover:underline"
@@ -51,7 +52,6 @@ export function TaskCard({
         >
           {item.title || t("common.untitled")}
         </button>
-        <PriorityMark priority={item.priority ?? "none"} />
       </div>
       {item.subtask_total > 0 ? (
         <p className="mt-1 font-mono text-[12px] text-fg-muted">

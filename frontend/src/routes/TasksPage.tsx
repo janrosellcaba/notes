@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Board } from "../components/kanban/Board";
-import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
+import { TaskEditor } from "../components/items/TaskEditor";
 import { nestTasks, TaskList } from "../components/items/TaskList";
 import { NewButton } from "../components/ui/NewButton";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -21,13 +21,13 @@ export function TasksPage() {
   const tasksView = useUi((state) => state.tasksView);
   const contextId = useUi((state) => state.contextId);
   const pushToast = useUi((state) => state.pushToast);
+  const openCapture = useUi((state) => state.openCapture);
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const queryView = params.get("view");
   const view = queryView === "board" || queryView === "list" ? queryView : tasksView;
   const today = todayISO();
   const [editing, setEditing] = useState<Item | null>(null);
-  const [creating, setCreating] = useState(false);
   const filters = useMemo<ItemFilters>(() => {
     const next: ItemFilters = {
       type: "task",
@@ -72,7 +72,7 @@ export function TasksPage() {
         title={t("tasks.title")}
         actions={
           <>
-            <NewButton onClick={() => setCreating(true)}>{t("tasks.new")}</NewButton>
+            <NewButton onClick={() => openCapture({ type: "task" })}>{t("tasks.new")}</NewButton>
             <SegmentedControl
               label={t("settings.tasksView")}
               value={view}
@@ -95,7 +95,6 @@ export function TasksPage() {
         />
       )}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}
-      {creating ? <TaskCreateDialog onClose={() => setCreating(false)} /> : null}
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { create } from "zustand";
 
 import { readBoardOrder, writeBoardOrder, type BoardStatus } from "../lib/board";
+import { readLogoStyle, writeLogoStyle, type LogoStyle } from "../lib/logo";
 import { readTaskFields, writeTaskFields, type TaskField, type TaskFieldVisibility } from "../lib/taskFields";
 import { applyTheme, readTheme, THEME_KEY, type Theme } from "../lib/theme";
 
 export type TasksView = "list" | "board";
 export type EditorPreview = "edit" | "preview";
+export type { LogoStyle };
 
 export type CaptureRequest =
   | { type: "note"; projectId: string | null }
@@ -57,6 +59,7 @@ type UiState = {
   editorPreview: EditorPreview;
   calendarSlotOpen: boolean;
   theme: Theme;
+  logoStyle: LogoStyle;
   boardOrder: BoardStatus[];
   taskFields: TaskFieldVisibility;
   tourStep: number | null;
@@ -70,6 +73,7 @@ type UiState = {
   setEditorPreview: (mode: EditorPreview) => void;
   setCalendarSlotOpen: (open: boolean) => void;
   setTheme: (theme: Theme) => void;
+  setLogoStyle: (style: LogoStyle) => void;
   setBoardOrder: (order: BoardStatus[]) => void;
   moveBoardColumn: (status: BoardStatus, direction: -1 | 1) => void;
   setTaskField: (field: TaskField, shown: boolean) => void;
@@ -91,6 +95,7 @@ export const useUi = create<UiState>((set, get) => ({
   editorPreview: read(KEYS.editorPreview) === "preview" ? "preview" : "edit",
   calendarSlotOpen: readBool(KEYS.calendarSlotOpen, true),
   theme: readTheme(),
+  logoStyle: readLogoStyle(),
   boardOrder: readBoardOrder(),
   taskFields: readTaskFields(),
   tourStep: null,
@@ -122,6 +127,10 @@ export const useUi = create<UiState>((set, get) => ({
     write(KEYS.theme, theme);
     applyTheme(theme);
     set({ theme });
+  },
+  setLogoStyle: (logoStyle) => {
+    writeLogoStyle(logoStyle);
+    set({ logoStyle });
   },
   setBoardOrder: (boardOrder) => {
     writeBoardOrder(boardOrder);

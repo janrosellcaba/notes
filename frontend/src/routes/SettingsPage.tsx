@@ -4,12 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 import { ContextMark, CONTEXT_ICONS } from "../components/shell/ContextMark";
+import { BrandMark } from "../components/ui/BrandMark";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
 import { Modal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { TextField } from "../components/ui/TextField";
+import { LOGO_OPTIONS, type LogoStyle } from "../lib/logo";
 import {
   changePassword,
   createContext,
@@ -51,6 +53,8 @@ export function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
   const theme = useUi((state) => state.theme);
   const setTheme = useUi((state) => state.setTheme);
+  const logoStyle = useUi((state) => state.logoStyle);
+  const setLogoStyle = useUi((state) => state.setLogoStyle);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [newContext, setNewContext] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -266,6 +270,36 @@ export function SettingsPage() {
                   { value: "light", label: t("settings.light") },
                 ]}
               />
+            </div>
+            <div className="mt-4 border-b border-border-subtle pb-4">
+              <p className="text-[13px] text-fg-secondary">{t("settings.logo")}</p>
+              <p className="mt-0.5 text-[13px] text-fg-muted">{t("settings.logoDetail")}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {LOGO_OPTIONS.map((value) => {
+                  const active = logoStyle === value;
+                  const labelKey = (
+                    {
+                      flat: "settings.logoFlat",
+                      doodle: "settings.logoDoodle",
+                      smile: "settings.logoSmile",
+                      threeD: "settings.logo3d",
+                    } as const
+                  )[value] satisfies MessageKey;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`flex items-center gap-3 rounded-[10px] border px-3 py-3 text-left ${
+                        active ? "border-fg bg-interactive" : "border-border hover:border-border-strong"
+                      }`}
+                      onClick={() => setLogoStyle(value as LogoStyle)}
+                    >
+                      <BrandMark size={40} style={value} />
+                      <span className="text-[13px]">{t(labelKey)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="mt-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>

@@ -1,4 +1,6 @@
 import { cn } from "../../lib/cn";
+import { LOGO_SRC, type LogoStyle } from "../../lib/logo";
+import { useUi } from "../../stores/ui";
 
 type Variant = "tile" | "plain";
 
@@ -8,15 +10,62 @@ const BLOB =
 const PILL =
   "M 6.66 19.50 C 6.85 19.49 7.22 19.46 7.51 19.56 C 7.81 19.66 8.17 19.89 8.43 20.11 C 8.68 20.32 8.83 20.54 9.03 20.84 C 9.24 21.13 9.48 21.47 9.64 21.87 C 9.81 22.27 9.95 22.82 10.01 23.21 C 10.07 23.59 10.05 23.90 10.01 24.18 C 9.97 24.47 9.90 24.71 9.76 24.91 C 9.63 25.11 9.44 25.31 9.22 25.40 C 8.99 25.49 8.72 25.53 8.43 25.46 C 8.13 25.39 7.76 25.21 7.45 24.97 C 7.15 24.74 6.84 24.39 6.60 24.06 C 6.36 23.73 6.14 23.34 5.99 22.97 C 5.84 22.59 5.74 22.17 5.69 21.81 C 5.64 21.44 5.64 21.08 5.69 20.78 C 5.74 20.47 5.88 20.18 5.99 19.98 C 6.10 19.79 6.25 19.70 6.36 19.62 C 6.47 19.54 6.47 19.51 6.66 19.50 Z";
 
+function ImageMark({
+  src,
+  size,
+  className,
+  tone,
+}: {
+  src: string;
+  size: number;
+  className?: string;
+  tone: "dark" | "light";
+}) {
+  return (
+    <span
+      className={cn("inline-flex shrink-0 overflow-hidden rounded-[22.5%]", className)}
+      style={{
+        width: size,
+        height: size,
+        background: tone === "dark" ? "#000000" : "#ffffff",
+        boxShadow: "0 0 0 1px var(--logo-border)",
+      }}
+      aria-hidden="true"
+    >
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className={tone === "light" ? "h-full w-full object-contain p-[8%]" : "h-full w-full object-cover"}
+        draggable={false}
+      />
+    </span>
+  );
+}
+
 export function BrandMark({
   size = 28,
   variant = "tile",
+  style,
   className,
 }: {
   size?: number;
   variant?: Variant;
+  /** Override the settings preference (e.g. settings previews). */
+  style?: LogoStyle;
   className?: string;
 }) {
+  const preferred = useUi((state) => state.logoStyle);
+  const logo = style ?? preferred;
+  if (logo === "threeD") {
+    // Keep the black squircle from the asset so the white clay mark stays readable in light mode.
+    return <ImageMark src={LOGO_SRC.threeD} size={size} className={className} tone="dark" />;
+  }
+  if (logo === "doodle" || logo === "smile") {
+    // Doodle assets are dark/blue ink on white — keep a white tile so they read in dark mode too.
+    return <ImageMark src={LOGO_SRC[logo]} size={size} className={className} tone="light" />;
+  }
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

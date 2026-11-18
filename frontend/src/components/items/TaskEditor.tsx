@@ -1,8 +1,8 @@
-import { Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Paperclip, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createItem, deleteItem, listItems, patchItem } from "../../lib/api";
+import { createItem, deleteItem, listItems, patchItem, uploadAttachment } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { queryKeys } from "../../lib/queryKeys";
 import { useContexts, useProjectList } from "../../lib/queries";
@@ -11,6 +11,7 @@ import type { Item, ItemPriority, ItemStatus } from "../../types/api";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
+import { PriorityMark } from "../ui/PriorityMark";
 import { StatusSelect } from "../ui/StatusSelect";
 import { Attachments } from "./Attachments";
 
@@ -19,84 +20,291 @@ const PRIORITIES: ItemPriority[] = ["none", "low", "medium", "high", "urgent"];
 const fieldClass =
   "mt-1.5 min-h-9 w-full rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg";
 
-export function TaskCreateDialog({ projectId: initialProjectId, onClose }: { projectId?: string; onClose: () => void }) {
+export function TaskCreateDialog({
+  projectId: initialProjectId,
+  dueOn: initialDue = null,
+  onClose,
+}: {
+  projectId?: string | null;
+  dueOn?: string | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const pushToast = useUi((state) => state.pushToast);
   const { t } = useI18n();
   const projects = useProjectList("all");
   const contexts = useContexts();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
-  const [due, setDue] = useState("");
+  const [batch, setBatch] = useState(false);
+  const [batchText, setBatchText] = useState("");
+  const [body, setBody] = useState("");
+  const [due, setDue] = useState(initialDue ?? "");
   const [starts, setStarts] = useState("");
   const [assignee, setAssignee] = useState("");
   const [priority, setPriority] = useState<ItemPriority>("none");
+  const [status, setStatus] = useState<ItemStatus>("todo");
   const [projectId, setProjectId] = useState(initialProjectId ?? "");
   const [contextId, setContextId] = useState("");
+  const [subtask, setSubtask] = useState("");
+  const [pendingSubtasks, setPendingSubtasks] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [pending, setPending] = useState(false);
+  const [keepOpen, setKeepOpen] = useState(false);
 
-  async function submit() {
-    const nextTitle = title.trim();
-    if (!nextTitle || pending) return;
-    setPending(true);
-    try {
+  function resetForm(nextKeepOpen = false) {
+    setTitle("");
+    setBatchText("");
+    setBody("");
+    setDue(initialDue ?? "");
+    setStarts("");
+    setAssignee("");
+    setPriority("none");
+    setStatus("todo");
+    setProjectId(initialProjectId ?? "");
+    setContextId("");
+    setSubtask("");
+    setPendingSubtasks([]);
+    setFiles([]);
+    setKeepOpen(nextKeepOpen);
+    setPending(false);
+  }
+
+  function addPendingSubtask() {
+    const next = subtask.trim();
+    if (!next) return;
+    setPendingSubtasks((rows) => [...rows, next]);
+    setSubtask("");
+  }
+
+  async function createOne(nextTitle: string, extras: { body?: string; subtasks?: string[]; files?: File[] } = {}) {
+    const created = await createItem({
+      type: "task",
+      title: nextTitle,
+      body_md: extras.body ?? "",
+      project_id: projectId || null,
+      context_id: projectId ? null : contextId || null,
+      status,
+      priority,
+      due_on: due || null,
+      starts_on: starts || null,
+      assignee: assignee.trim() || null,
+    });
+    for (const child of extras.subtasks ?? []) {
       await createItem({
         type: "task",
-        title: nextTitle,
-        project_id: projectId || null,
-        context_id: projectId ? null : contextId || null,
-        priority,
-        due_on: due || null,
-        starts_on: starts || null,
-        assignee: assignee.trim() || null,
+        title: child,
+        parent_id: created.id,
+        project_id: created.project?.id ?? null,
+        context_id: created.project ? null : (created.context?.id ?? null),
       });
+    }
+    for (const file of extras.files ?? []) {
+      await uploadAttachment(created.id, file);
+    }
+    return created;
+  }
+
+  async function submit(options: { close: boolean } = { close: true }) {
+    if (pending) return;
+    if (batch) {
+      const lines = batchText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      if (lines.length === 0) return;
+      setPending(true);
+      try {
+        for (const line of lines) {
+          await createOne(line);
+        }
+        await queryClient.invalidateQueries({ queryKey: ["items"] });
+        await queryClient.invalidateQueries({ queryKey: ["home"] });
+        if (options.close) onClose();
+        else resetForm(true);
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
+        setPending(false);
+      }
+      return;
+    }
+
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    setPending(true);
+    try {
+      await createOne(nextTitle, { body: body.trim(), subtasks: pendingSubtasks, files });
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
-      onClose();
+      if (options.close) onClose();
+      else resetForm(true);
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
       setPending(false);
     }
   }
 
+  const canSubmit = batch
+    ? batchText.split("\n").some((line) => line.trim().length > 0)
+    : title.trim().length > 0;
+
   return (
     <Modal title={t("tasks.new")} onClose={onClose}>
       <form
-        className="flex flex-col gap-3 p-4"
+        className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto p-4"
         onSubmit={(event) => {
           event.preventDefault();
-          void submit();
+          void submit({ close: !keepOpen });
         }}
       >
-        <input
-          autoFocus
-          value={title}
-          aria-label={t("editor.title")}
-          placeholder={t("editor.title")}
-          className="min-h-10 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
-          onChange={(event) => setTitle(event.target.value)}
-        />
-        <TaskDetails
-          due={due}
-          starts={starts}
-          assignee={assignee}
-          priority={priority}
-          projectId={projectId}
-          contextId={contextId}
-          projects={projects.data?.projects ?? []}
-          contexts={contexts.data?.contexts ?? []}
-          onDue={setDue}
-          onStarts={setStarts}
-          onAssignee={setAssignee}
-          onPriority={setPriority}
-          onProject={setProjectId}
-          onContext={setContextId}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {!batch ? (
+            <StatusSelect status={status} showLabel={false} onChange={setStatus} />
+          ) : null}
+          <button
+            type="button"
+            className={`rounded-md px-2 py-1 text-[12px] ${batch ? "bg-interactive text-fg" : "text-fg-muted hover:text-fg"}`}
+            onClick={() => setBatch((value) => !value)}
+          >
+            {t("tasks.batch")}
+          </button>
+          <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-fg-muted">
+            <input
+              type="checkbox"
+              checked={keepOpen}
+              onChange={(event) => setKeepOpen(event.target.checked)}
+            />
+            {t("tasks.keepOpen")}
+          </label>
+        </div>
+        {batch ? (
+          <textarea
+            autoFocus
+            value={batchText}
+            aria-label={t("tasks.batchHint")}
+            placeholder={t("tasks.batchHint")}
+            className="min-h-36 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
+            onChange={(event) => setBatchText(event.target.value)}
+          />
+        ) : (
+          <>
+            <input
+              autoFocus
+              value={title}
+              aria-label={t("editor.title")}
+              placeholder={t("editor.title")}
+              className="min-h-10 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
+              onChange={(event) => setTitle(event.target.value)}
+            />
+            <TaskDetails
+              due={due}
+              starts={starts}
+              assignee={assignee}
+              priority={priority}
+              projectId={projectId}
+              contextId={contextId}
+              projects={projects.data?.projects ?? []}
+              contexts={contexts.data?.contexts ?? []}
+              onDue={setDue}
+              onStarts={setStarts}
+              onAssignee={setAssignee}
+              onPriority={setPriority}
+              onProject={setProjectId}
+              onContext={setContextId}
+            />
+            <div>
+              <p className="text-[13px] text-fg-secondary">{t("task.subtasks")}</p>
+              <ul className="mt-1.5">
+                {pendingSubtasks.map((row, index) => (
+                  <li key={`${row}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">{row}</span>
+                    <button
+                      type="button"
+                      className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
+                      aria-label={t("editor.remove")}
+                      onClick={() => setPendingSubtasks((rows) => rows.filter((_, i) => i !== index))}
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={subtask}
+                  aria-label={t("task.addSubtask")}
+                  placeholder={t("task.addSubtask")}
+                  className="min-h-8 min-w-0 flex-1 rounded-md border border-border bg-canvas px-2.5 text-[13px] outline-none focus:border-fg"
+                  onChange={(event) => setSubtask(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addPendingSubtask();
+                    }
+                  }}
+                />
+                <Button type="button" variant="consult" disabled={subtask.trim().length === 0} onClick={addPendingSubtask}>
+                  {t("common.create")}
+                </Button>
+              </div>
+            </div>
+            <textarea
+              value={body}
+              aria-label={t("task.notes")}
+              placeholder={t("task.notes")}
+              className="min-h-24 rounded-md border border-border bg-canvas px-2.5 py-2 text-[13px] leading-[1.6] outline-none focus:border-fg"
+              onChange={(event) => setBody(event.target.value)}
+            />
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] text-fg-secondary">{t("editor.attachments")}</p>
+                <button
+                  type="button"
+                  className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 text-[12px] text-fg-muted hover:bg-interactive hover:text-fg"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Paperclip size={12} />
+                  {t("editor.addFile")}
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const next = event.target.files ? Array.from(event.target.files) : [];
+                    if (next.length) setFiles((current) => [...current, ...next]);
+                    event.target.value = "";
+                  }}
+                />
+              </div>
+              {files.length > 0 ? (
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {files.map((file, index) => (
+                    <li key={`${file.name}-${index}`} className="flex min-h-8 items-center gap-2 text-[13px]">
+                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        className="rounded p-1 text-fg-muted hover:bg-interactive hover:text-fg"
+                        aria-label={t("editor.remove")}
+                        onClick={() => setFiles((rows) => rows.filter((_, i) => i !== index))}
+                      >
+                        <X size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="consult" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button type="submit" variant="go" disabled={pending || title.trim().length === 0}>
-            {t("tasks.create")}
+          <Button type="submit" variant="go" disabled={pending || !canSubmit}>
+            {batch ? t("tasks.createMany") : t("tasks.create")}
           </Button>
         </div>
       </form>
@@ -130,6 +338,7 @@ export function TaskEditor({
   const [subtask, setSubtask] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const children = useQuery({
     queryKey: queryKeys.items({ parent_id: item.id, type: "task", include_done: true, limit: 100 }),
     queryFn: () => listItems({ parent_id: item.id, type: "task", include_done: true, limit: 100 }),
@@ -148,31 +357,36 @@ export function TaskEditor({
     setConfirmDelete(false);
   }, [item]);
 
-  useEffect(() => {
-    if (title === item.title && body === item.body_md) return;
-    const timer = window.setTimeout(() => {
-      const nextTitle = title.trim();
-      // Never persist a blank title; still allow body-only updates.
-      if (!nextTitle) {
-        if (body !== item.body_md) void save({ body_md: body });
-        return;
-      }
-      void save({ title: nextTitle, body_md: body });
-    }, 400);
-    return () => window.clearTimeout(timer);
-    // Title and body debounce. Selects save immediately.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, body]);
-
   async function save(patch: Parameters<typeof patchItem>[1]) {
     try {
       const saved = await patchItem(item.id, patch);
       queryClient.setQueryData(queryKeys.item(item.id), saved);
       await queryClient.invalidateQueries({ queryKey: ["items"] });
       await queryClient.invalidateQueries({ queryKey: ["home"] });
+      return saved;
     } catch (error) {
       pushToast(error instanceof Error ? error.message : t("editor.unavailable"));
+      return null;
     }
+  }
+
+  async function saveAndClose() {
+    const nextTitle = title.trim();
+    if (!nextTitle || saving) return;
+    setSaving(true);
+    const saved = await save({
+      title: nextTitle,
+      body_md: body,
+      due_on: due || null,
+      starts_on: starts || null,
+      assignee: assignee.trim() || null,
+      priority,
+      status,
+      project_id: projectId || null,
+      context_id: projectId ? null : contextId || null,
+    });
+    setSaving(false);
+    if (saved) onClose();
   }
 
   async function addSubtask() {
@@ -210,7 +424,13 @@ export function TaskEditor({
 
   return (
     <Modal title={t("editor.task")} onClose={onClose}>
-      <form className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto p-4" onSubmit={(event) => event.preventDefault()}>
+      <form
+        className="flex max-h-[80dvh] flex-col gap-3 overflow-y-auto p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void saveAndClose();
+        }}
+      >
         <div className="flex items-start gap-2">
           <StatusSelect
             status={status}
@@ -219,12 +439,19 @@ export function TaskEditor({
               void save({ status: next });
             }}
           />
+          <PriorityMark priority={priority} className="mt-2" />
           <input
             value={title}
             aria-label={t("editor.title")}
             placeholder={t("editor.title")}
             className="min-h-10 min-w-0 flex-1 rounded-md border-0 bg-transparent px-0 text-[16px] font-medium outline-none placeholder:text-fg-muted"
             onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void saveAndClose();
+              }
+            }}
           />
           {confirmDelete ? (
             <Button type="button" variant="consult" tone="danger" disabled={deleting} onClick={() => void remove()}>
@@ -285,6 +512,7 @@ export function TaskEditor({
                       )
                     }
                   />
+                  <PriorityMark priority={child.priority} />
                   <button type="button" className="min-w-0 flex-1 truncate text-left text-[13px]" onClick={() => onOpen?.(child)}>
                     {child.title}
                   </button>
@@ -319,6 +547,14 @@ export function TaskEditor({
           onChange={(event) => setBody(event.target.value)}
         />
         <Attachments itemId={item.id} />
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="consult" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" variant="go" disabled={saving || title.trim().length === 0}>
+            {t("common.save")}
+          </Button>
+        </div>
       </form>
     </Modal>
   );

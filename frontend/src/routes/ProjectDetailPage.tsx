@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Board } from "../components/kanban/Board";
 import { MonthCalendar } from "../components/home/MonthCalendar";
-import { TaskCreateDialog, TaskEditor } from "../components/items/TaskEditor";
+import { TaskEditor } from "../components/items/TaskEditor";
 import { nestTasks, TaskList } from "../components/items/TaskList";
 import { Button } from "../components/ui/Button";
 import { ContextBadge } from "../components/ui/ContextBadge";
@@ -15,13 +15,13 @@ import { SegmentedControl } from "../components/ui/SegmentedControl";
 import { Modal } from "../components/ui/Modal";
 import { Popover } from "../components/ui/Popover";
 import { TextField } from "../components/ui/TextField";
-import { archiveProject, deleteProject, getProject, listItems, patchItem, patchProject } from "../lib/api";
+import { deleteProject, getProject, listItems, patchItem, patchProject } from "../lib/api";
 import { mapItem, restoreLists, snapshotLists } from "../lib/cache";
 import { relativeTime, todayISO } from "../lib/dates";
 import { useI18n, type MessageKey } from "../lib/i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { useUi } from "../stores/ui";
-import type { Item, ItemFilters, ItemStatus } from "../types/api";
+import type { Item, ItemFilters, ItemStatus, ProjectStatus } from "../types/api";
 
 type Tab = "notes" | "tasks" | "meetings" | "calendar";
 type TasksView = "list" | "board";
@@ -51,11 +51,11 @@ export function ProjectDetailPage() {
   const pushToast = useUi((state) => state.pushToast);
   const { t } = useI18n();
   const [menu, setMenu] = useState(false);
-  const [renaming, setRenaming] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState("");
+  const [due, setDue] = useState("");
   const [editing, setEditing] = useState<Item | null>(null);
-  const [creating, setCreating] = useState(false);
   const today = todayISO();
   const project = useQuery({
     queryKey: queryKeys.project(projectId),
@@ -105,28 +105,28 @@ export function ProjectDetailPage() {
     setParams(copy, { replace: true });
   }
 
-  async function rename() {
+  async function saveProject() {
     const next = name.trim();
     if (!next || !project.data) return;
     try {
-      const saved = await patchProject(project.data.id, { name: next });
+      const saved = await patchProject(project.data.id, { name: next, due_on: due || null });
       queryClient.setQueryData(queryKeys.project(project.data.id), saved);
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      setRenaming(false);
+      setEditingProject(false);
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not rename the project");
+      pushToast(error instanceof Error ? error.message : "Could not update the project");
     }
   }
 
-  async function archive() {
+  async function setProjectStatus(status: ProjectStatus) {
     if (!project.data) return;
     setMenu(false);
     try {
-      await archiveProject(project.data.id);
+      const saved = await patchProject(project.data.id, { status });
+      queryClient.setQueryData(queryKeys.project(project.data.id), saved);
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      void navigate("/projects");
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Could not archive the project");
+      pushToast(error instanceof Error ? error.message : "Could not update the project");
     }
   }
 
@@ -164,6 +164,7 @@ export function ProjectDetailPage() {
   if (project.isPending) return <p className="text-fg-muted">{t("common.loading")}</p>;
   if (project.isError || !project.data) return <p>{t("project.missing")}</p>;
   const current = project.data;
+  const isActive = current.status === "active";
   const meetingRows = [...(meetings.data?.items ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at));
   const nested = nestTasks(tasks.data?.items ?? []);
   const tabs: Tab[] = ["notes", "tasks", "meetings", "calendar"];
@@ -175,14 +176,26 @@ export function ProjectDetailPage() {
           <button
             type="button"
             className="flex min-w-0 items-center gap-3 rounded-md text-left hover:bg-interactive"
-            title={t("project.rename")}
+            title={t("project.edit")}
             onClick={() => {
               setName(current.name);
-              setRenaming(true);
+              setDue(current.due_on ?? "");
+              setEditingProject(true);
             }}
           >
             <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: current.color }} />
-            <span className="truncate">{current.name}</span>
+            <span className="min-w-0 truncate">
+              {current.name}
+              {current.due_on ? (
+                <span className="ml-2 font-mono text-[12px] font-normal text-fg-muted">{current.due_on}</span>
+              ) : null}
+              {current.status === "done" ? (
+                <span className="ml-2 text-[12px] font-normal text-status-done">{t("project.statusDone")}</span>
+              ) : null}
+              {current.status === "cancelled" ? (
+                <span className="ml-2 text-[12px] font-normal text-fg-muted">{t("project.statusCancelled")}</span>
+              ) : null}
+            </span>
           </button>
         }
         actions={
@@ -207,15 +220,39 @@ export function ProjectDetailPage() {
                   className="w-full justify-start"
                   onClick={() => {
                     setName(current.name);
+                    setDue(current.due_on ?? "");
                     setMenu(false);
-                    setRenaming(true);
+                    setEditingProject(true);
                   }}
                 >
-                  {t("project.rename")}
+                  {t("project.edit")}
                 </Button>
-                <Button variant="consult" className="w-full justify-start" onClick={() => void archive()}>
-                  {t("project.archive")}
-                </Button>
+                {current.status === "active" ? (
+                  <>
+                    <Button
+                      variant="consult"
+                      className="w-full justify-start"
+                      onClick={() => void setProjectStatus("done")}
+                    >
+                      {t("project.markDone")}
+                    </Button>
+                    <Button
+                      variant="consult"
+                      className="w-full justify-start"
+                      onClick={() => void setProjectStatus("cancelled")}
+                    >
+                      {t("project.markCancelled")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="consult"
+                    className="w-full justify-start"
+                    onClick={() => void setProjectStatus("active")}
+                  >
+                    {t("project.reopen")}
+                  </Button>
+                )}
                 {confirmDelete ? (
                   <Button variant="consult" tone="danger" className="w-full justify-start" onClick={() => void remove()}>
                     {t("project.deleteConfirm")}
@@ -246,11 +283,14 @@ export function ProjectDetailPage() {
           </button>
         ))}
       </div>
+      {!isActive ? <p className="text-[13px] text-fg-muted">{t("project.closedHint")}</p> : null}
       {tab === "notes" ? (
         <section className="flex flex-col gap-2">
-          <NewButton className="self-start" onClick={() => openCapture({ type: "note", projectId: current.id })}>
-            {t("project.noteIn")}
-          </NewButton>
+          {isActive ? (
+            <NewButton className="self-start" onClick={() => openCapture({ type: "note", projectId: current.id })}>
+              {t("project.noteIn")}
+            </NewButton>
+          ) : null}
           <ul>
             {(notes.data?.items ?? []).map((item) => (
               <li key={item.id}>
@@ -263,7 +303,13 @@ export function ProjectDetailPage() {
       {tab === "tasks" ? (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <NewButton onClick={() => setCreating(true)}>{t("tasks.new")}</NewButton>
+            {isActive ? (
+              <NewButton onClick={() => openCapture({ type: "task", projectId: current.id })}>
+                {t("tasks.new")}
+              </NewButton>
+            ) : (
+              <span />
+            )}
             <SegmentedControl
               label={t("settings.tasksView")}
               value={tasksView}
@@ -288,9 +334,11 @@ export function ProjectDetailPage() {
       ) : null}
       {tab === "meetings" ? (
         <section className="flex flex-col gap-2">
-          <NewButton className="self-start" onClick={() => openCapture({ type: "meeting", projectId: current.id })}>
-            {t("home.meeting")}
-          </NewButton>
+          {isActive ? (
+            <NewButton className="self-start" onClick={() => openCapture({ type: "meeting", projectId: current.id })}>
+              {t("home.meeting")}
+            </NewButton>
+          ) : null}
           <ul>
             {meetingRows.map((item) => (
               <li key={item.id}>
@@ -306,13 +354,13 @@ export function ProjectDetailPage() {
           <MonthCalendar projectId={current.id} />
         </section>
       ) : null}
-      {renaming ? (
-        <Modal title={t("project.renameTitle")} onClose={() => setRenaming(false)}>
+      {editingProject ? (
+        <Modal title={t("project.editTitle")} onClose={() => setEditingProject(false)}>
           <form
             className="flex flex-col gap-4 p-4"
             onSubmit={(event) => {
               event.preventDefault();
-              void rename();
+              void saveProject();
             }}
           >
             <TextField
@@ -321,8 +369,17 @@ export function ProjectDetailPage() {
               autoFocus
               onChange={(event) => setName(event.target.value)}
             />
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] text-fg-secondary">{t("project.due")}</span>
+              <input
+                type="date"
+                value={due}
+                className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+                onChange={(event) => setDue(event.target.value)}
+              />
+            </label>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="consult" onClick={() => setRenaming(false)}>
+              <Button type="button" variant="consult" onClick={() => setEditingProject(false)}>
                 {t("common.cancel")}
               </Button>
               <Button type="submit" variant="go" disabled={name.trim().length === 0}>
@@ -333,7 +390,6 @@ export function ProjectDetailPage() {
         </Modal>
       ) : null}
       {editing ? <TaskEditor item={editing} onClose={() => setEditing(null)} onOpen={setEditing} /> : null}
-      {creating ? <TaskCreateDialog projectId={current.id} onClose={() => setCreating(false)} /> : null}
     </div>
   );
 }

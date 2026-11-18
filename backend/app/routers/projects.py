@@ -31,7 +31,12 @@ async def create_project(
     db: Database = Depends(get_db),
 ) -> Project:
     return await projects.create_project(
-        db, user.id, name=body.name, context_id=body.context_id, color=body.color
+        db,
+        user.id,
+        name=body.name,
+        context_id=body.context_id,
+        color=body.color,
+        due_on=body.due_on,
     )
 
 

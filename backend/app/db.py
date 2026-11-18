@@ -280,6 +280,17 @@ class Database:
         await conn.execute(
             "UPDATE contexts SET icon = 'house' WHERE icon IS NULL AND slug = 'personal'"
         )
+        cursor = await conn.execute("PRAGMA table_info(projects)")
+        project_rows = await cursor.fetchall()
+        await cursor.close()
+        project_cols = {str(row[1]) for row in project_rows}
+        if "due_on" not in project_cols:
+            await conn.execute("ALTER TABLE projects ADD COLUMN due_on TEXT")
+        if "status" not in project_cols:
+            await conn.execute("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+            await conn.execute(
+                "UPDATE projects SET status = 'done' WHERE archived_at IS NOT NULL AND status = 'active'"
+            )
         await self._ensure_tenancy()
 
     async def _ensure_tenancy(self) -> None:

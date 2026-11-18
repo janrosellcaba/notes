@@ -1,10 +1,14 @@
 """Project payloads."""
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+ProjectStatus = Literal["active", "done", "cancelled"]
 
 
 class ContextRef(BaseModel):
@@ -21,6 +25,8 @@ class Project(BaseModel):
     color: str
     color_override: str | None
     context: ContextRef
+    due_on: str | None = None
+    status: ProjectStatus = "active"
     archived_at: str | None
     created_at: str
     updated_at: str
@@ -36,12 +42,20 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     context_id: str = Field(min_length=1)
     color: str | None = None
+    due_on: str | None = None
 
     @field_validator("color")
     @classmethod
     def color_is_hex(cls, value: str | None) -> str | None:
         if value is not None and _COLOR.fullmatch(value) is None:
             raise ValueError("color must be #RRGGBB")
+        return value
+
+    @field_validator("due_on")
+    @classmethod
+    def due_is_day(cls, value: str | None) -> str | None:
+        if value is not None and _DAY.fullmatch(value) is None:
+            raise ValueError("due_on must be YYYY-MM-DD")
         return value
 
 
@@ -51,6 +65,8 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     context_id: str | None = None
     color: str | None = None
+    due_on: str | None = None
+    status: ProjectStatus | None = None
 
     @field_validator("name")
     @classmethod
@@ -75,4 +91,11 @@ class ProjectUpdate(BaseModel):
     def color_is_hex(cls, value: str | None) -> str | None:
         if value is not None and _COLOR.fullmatch(value) is None:
             raise ValueError("color must be #RRGGBB")
+        return value
+
+    @field_validator("due_on")
+    @classmethod
+    def due_is_day(cls, value: str | None) -> str | None:
+        if value is not None and _DAY.fullmatch(value) is None:
+            raise ValueError("due_on must be YYYY-MM-DD")
         return value

@@ -139,9 +139,13 @@ export function listContexts(): Promise<ContextList> {
   return api<ContextList>("/api/contexts");
 }
 
-export function listProjects(contextId: string | null): Promise<ProjectList> {
+export function listProjects(
+  contextId: string | null,
+  options: { includeArchived?: boolean } = {},
+): Promise<ProjectList> {
   const params = new URLSearchParams();
   if (contextId) params.set("context_id", contextId);
+  if (options.includeArchived) params.set("include_archived", "true");
   const query = params.toString();
   return api<ProjectList>(`/api/projects${query ? `?${query}` : ""}`);
 }
@@ -154,6 +158,7 @@ export function createProject(body: {
   name: string;
   context_id: string;
   color?: string | null;
+  due_on?: string | null;
 }): Promise<Project> {
   return api<Project>("/api/projects", { method: "POST", body });
 }
@@ -261,13 +266,23 @@ export function extractTask(id: string, body: { title: string; selection?: strin
 
 export function patchProject(
   id: string,
-  body: { name?: string; context_id?: string; color?: string | null },
+  body: {
+    name?: string;
+    context_id?: string;
+    color?: string | null;
+    due_on?: string | null;
+    status?: "active" | "done" | "cancelled";
+  },
 ): Promise<Project> {
   return api<Project>(`/api/projects/${encodeURIComponent(id)}`, { method: "PATCH", body });
 }
 
 export function archiveProject(id: string): Promise<Project> {
   return api<Project>(`/api/projects/${encodeURIComponent(id)}/archive`, { method: "POST" });
+}
+
+export function unarchiveProject(id: string): Promise<Project> {
+  return api<Project>(`/api/projects/${encodeURIComponent(id)}/unarchive`, { method: "POST" });
 }
 
 export function deleteProject(id: string): Promise<void> {

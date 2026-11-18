@@ -13,10 +13,11 @@ export function useContexts() {
   });
 }
 
-export function useProjectList(contextId: string) {
+export function useProjectList(contextId: string, options: { includeArchived?: boolean } = {}) {
+  const includeArchived = options.includeArchived ?? false;
   return useQuery({
-    queryKey: queryKeys.projects(contextId),
-    queryFn: () => listProjects(contextId === "all" ? null : contextId),
+    queryKey: [...queryKeys.projects(contextId), includeArchived ? "archived" : "active"] as const,
+    queryFn: () => listProjects(contextId === "all" ? null : contextId, { includeArchived }),
     staleTime: 30_000,
   });
 }

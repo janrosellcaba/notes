@@ -28,12 +28,16 @@ export type ProjectRef = {
   context: ContextRef;
 };
 
+export type ProjectStatus = "active" | "done" | "cancelled";
+
 export type Project = {
   id: string;
   name: string;
   color: string;
   color_override: string | null;
   context: ContextRef;
+  due_on: string | null;
+  status: ProjectStatus;
   archived_at: string | null;
   created_at: string;
   updated_at: string;

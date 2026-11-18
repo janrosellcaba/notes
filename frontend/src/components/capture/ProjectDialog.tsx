@@ -22,6 +22,7 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
       ? activeContext
       : (listed.find((context) => context.slug === "personal")?.id ?? listed[0]?.id ?? "");
   const [name, setName] = useState("");
+  const [due, setDue] = useState("");
   const [chosenContext, setChosenContext] = useState(contextId ?? fallback);
   useEffect(() => {
     if (listed.some((context) => context.id === chosenContext)) return;
@@ -34,7 +35,11 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
     if (!trimmed || pending) return;
     setPending(true);
     try {
-      const project = await createProject({ name: trimmed, context_id: chosenContext });
+      const project = await createProject({
+        name: trimmed,
+        context_id: chosenContext,
+        due_on: due || null,
+      });
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       onClose();
       void navigate(`/projects/${project.id}`);
@@ -79,6 +84,15 @@ export function ProjectDialog({ contextId, onClose }: { contextId: string | null
               </option>
             ))}
           </select>
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-fg-secondary">{t("project.due")}</span>
+          <input
+            type="date"
+            value={due}
+            className="min-h-9 w-full rounded-[8px] border border-border bg-canvas px-3 text-[14px] outline-none focus:border-fg"
+            onChange={(event) => setDue(event.target.value)}
+          />
         </label>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="consult" onClick={onClose}>
