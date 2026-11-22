@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     admin_password_hash: str = ""
     admin_password: str = ""
     signup_code: str = ""
+    api_token: str = ""
     session_secret: str = ""
     cookie_secure: bool = True
     allowed_origins: str = "https://notes.janrosell.com"

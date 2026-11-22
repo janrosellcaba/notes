@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Link2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -175,6 +175,16 @@ export default function ItemPage() {
     }
   }
 
+  async function copyLink() {
+    if (!item.data) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/item/${item.data.id}`);
+      pushToast(t("editor.linkCopied"));
+    } catch {
+      pushToast(`${window.location.origin}/item/${item.data.id}`);
+    }
+  }
+
   async function remove() {
     if (!item.data) return;
     const current = item.data;
@@ -211,6 +221,9 @@ export default function ItemPage() {
         <p className="ml-auto font-mono text-[13px] text-fg-muted" aria-live="polite">
           {status}
         </p>
+        <IconButton label={t("editor.copyLink")} onClick={() => void copyLink()}>
+          <Link2 size={14} />
+        </IconButton>
         {current.deleted_at ? null : confirmDelete ? (
           <Button variant="consult" tone="danger" onClick={() => void remove()}>
             {t("inbox.deleteConfirm")}
@@ -227,6 +240,9 @@ export default function ItemPage() {
         className="border-b border-border-subtle bg-transparent px-1 py-2 text-[20px] outline-none"
         onChange={(event) => patchDraft({ title: event.target.value })}
       />
+      <p className="px-1 pt-1 font-mono text-[11px] text-fg-muted">
+        {t("editor.id")} <span className="select-all">{current.id}</span>
+      </p>
       {meeting ? (
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3">
           <p className="text-[13px] text-fg-muted">{t("editor.takeaways")}</p>

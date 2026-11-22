@@ -27,11 +27,13 @@ export function StatusSelect({
   status,
   onChange,
   showLabel = true,
+  subject,
   className,
 }: {
   status: ItemStatus;
   onChange: (status: ItemStatus) => void;
   showLabel?: boolean;
+  subject?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -39,6 +41,7 @@ export function StatusSelect({
   const { t } = useI18n();
   const current = status ?? "todo";
   const Icon = ICONS[current];
+  const label = `${t("tasks.changeStatus")}: ${t(`board.${current}` as MessageKey)}${subject ? ` · ${subject}` : ""}`;
 
   return (
     <Popover
@@ -53,7 +56,8 @@ export function StatusSelect({
             TONE[current],
             className,
           )}
-          aria-label={t("tasks.changeStatus")}
+          aria-label={label}
+          title={label}
           aria-haspopup="listbox"
           aria-expanded={open}
           onClick={(event) => {

@@ -382,7 +382,7 @@ function TaskListRow({
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
-        <StatusSelect status={item.status ?? "todo"} showLabel={false} onChange={(status) => onStatus(item, status)} />
+        <StatusSelect status={item.status ?? "todo"} showLabel={false} subject={item.title} onChange={(status) => onStatus(item, status)} />
       </div>
       {onPriority ? (
         <div

@@ -43,6 +43,7 @@ export function TaskRow({ item }: { item: Item }) {
       <StatusSelect
         status={item.status ?? "todo"}
         showLabel={false}
+        subject={item.title}
         onChange={(status) => setStatus.mutate(status)}
       />
       <Link to={`/item/${item.id}`} className={`min-w-0 flex-1 truncate ${done ? "text-fg-muted line-through" : ""}`}>
